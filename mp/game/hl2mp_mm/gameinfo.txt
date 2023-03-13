@@ -1,6 +1,6 @@
 "GameInfo"
 {
-	game	"My First HL2MP Mod"
+	game	"Half-Life 2 Deathmatch with Matchmaking"
 	title	"HALF+LIFE'"
 	title2	"deathmatch mod"
 	type multiplayer_only
@@ -17,7 +17,7 @@
 
 	FileSystem
 	{
-		SteamAppId				243750
+		SteamAppId				320
 		
 		//
 		// The code that loads this file automatically does a few things here:
