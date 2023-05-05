@@ -1,6 +1,6 @@
 "GameInfo"
 {
-	game	"Half-Life 2 Deathmatch with Matchmaking"
+	game	"Half-Life 2: Deathmatch with Matchmaking"
 	title	"HALF+LIFE'"
 	title2	"deathmatch mod"
 	type multiplayer_only
