@@ -78,3 +78,8 @@ config.cfg
 *.filters
 *.vpc_crc
 *.lib
+
+//vcpkg stuff
+/mp/src/mm_server/vcpkg_mm_server/vcpkg/*
+/mp/src/mm_server/vcpkg_mm_server/vcpkg_installed/*
+/mp/src/mm_server/vcpkg_mm_server/build/*
