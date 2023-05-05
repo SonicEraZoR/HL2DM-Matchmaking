@@ -228,7 +228,7 @@ class ISteamRemoteStorage
 		virtual const char *GetFileNameAndSize( int iFile, int32 *pnFileSizeInBytes ) = 0;
 
 		// configuration management
-		virtual bool GetQuota( uint64 *pnTotalBytes, uint64 *puAvailableBytes ) = 0;
+		virtual bool GetQuota( int32 *pnTotalBytes, int32 *puAvailableBytes ) = 0;
 		virtual bool IsCloudEnabledForAccount() = 0;
 		virtual bool IsCloudEnabledForApp() = 0;
 		virtual void SetCloudEnabledForApp( bool bEnabled ) = 0;
