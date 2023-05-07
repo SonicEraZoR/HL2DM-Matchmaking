@@ -148,6 +148,8 @@
 #include "fbxsystem/fbxsystem.h"
 #endif
 
+#include <steam/steamnetworkingsockets.h>
+
 extern vgui::IInputInternal *g_InputInternal;
 
 //=============================================================================
@@ -853,6 +855,8 @@ extern IGameSystem *ViewportClientSystem();
 //-----------------------------------------------------------------------------
 ISourceVirtualReality *g_pSourceVR = NULL;
 
+#define STEAMNETWORKINGSOCKETS_OPENSOURCE
+
 // Purpose: Called when the DLL is first loaded.
 // Input  : engineFactory - 
 // Output : int
@@ -1089,6 +1093,20 @@ int CHLClient::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physi
 	HookHapticMessages(); // Always hook the messages
 #endif
 
+#ifdef STEAMNETWORKINGSOCKETS_OPENSOURCE
+	SteamDatagramErrMsg errMsg;
+	if (!GameNetworkingSockets_Init(nullptr, errMsg))
+		Warning("GameNetworkingSockets_Init failed.  %s", errMsg);
+#else
+	// Disable authentication when running with Steam, for this
+	// example, since we're not a real app.
+	//
+	// Authentication is disabled automatically in the open-source
+	// version since we don't have a trusted third party to issue
+	// certs.
+	SteamNetworkingUtils()->SetGlobalConfigValueInt32(k_ESteamNetworkingConfig_IP_AllowWithoutAuth, 1);
+#endif
+
 	return true;
 }
 
@@ -1226,6 +1244,8 @@ void CHLClient::Shutdown( void )
 	// NVNT Disconnect haptics system
 	DisconnectHaptics();
 #endif
+
+	GameNetworkingSockets_Kill();
 }
 
 
