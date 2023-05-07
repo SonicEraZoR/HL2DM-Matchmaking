@@ -788,6 +788,6 @@ int main( int argc, const char *argv[] )
 
 	// Ug, why is there no simple solution for portable, non-blocking console user input?
 	// Just nuke the process
-	//LocalUserInput_Kill();
+	LocalUserInput_Kill();
 	NukeProcess(0);
 }
