@@ -74,7 +74,7 @@ static void InitSteamDatagramConnectionSockets()
 // ChatClient
 //
 /////////////////////////////////////////////////////////////////////////////
-class ChatClientThread : public CWorkerThread
+class ChatClientThread : public CThread
 {
 public:
 	ChatClientThread()
@@ -105,7 +105,7 @@ public:
 		// Reset some variables
 		SteamNetworkingIPAddr serverAddr = m_pServerAddr;
 
-		Reply(1);
+		//Reply(1);
 		RunClient(serverAddr);
 		return 0;
 	}
@@ -151,7 +151,10 @@ private:
 			if (numMsgs == 0 || !pIncomingMsg)
 				break;
 			if (numMsgs < 0)
-				Warning("Error checking for messages");
+			{
+				Warning("Error checking for messages\n");
+				break;
+			}
 
 			// Just echo anything we get from the server
 			Msg((char*)pIncomingMsg->m_pData);
@@ -253,6 +256,13 @@ private:
 	void RunCallBacks()
 	{
 		m_pInterface->RunCallbacks();
+	}
+
+	void OnExit()
+	{
+		g_bQuit = true;
+
+		CThread::OnExit();
 	}
 
 	friend void SteamNetConnectionStatusChangedCallback(SteamNetConnectionStatusChangedCallback_t *pInfo);
