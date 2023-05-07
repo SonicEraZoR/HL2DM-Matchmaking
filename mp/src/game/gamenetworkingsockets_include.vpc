@@ -1,0 +1,24 @@
+//-----------------------------------------------------------------------------
+//	gamenetworkingsockets_include.vpc
+//
+//	Project Script
+//-----------------------------------------------------------------------------
+
+$MacroRequired "PLATFORM"
+
+$Configuration
+{
+	$Compiler
+	{
+		$PreprocessorDefinitions		"$BASE;STEAMNETWORKINGSOCKETS_STANDALONELIB" 
+	}
+}
+
+$Project
+{
+	$Folder "Link Libraries"
+	{
+		$Libexternal GameNetworkingSockets [$VS2013 || !$WINDOWS]
+		$Libexternal libcrypto [$VS2013 || !$WINDOWS]
+	}
+}
