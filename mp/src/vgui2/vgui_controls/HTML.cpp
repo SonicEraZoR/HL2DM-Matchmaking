@@ -24,6 +24,11 @@
 // memdbgon must be the last include file in a .cpp file
 #include "tier0/memdbgon.h"
 
+#ifdef _WIN32
+//this warning literally came out of nowhere so i'll just dissable it
+#pragma warning( disable : 4355 )
+#endif
+
 using namespace vgui;
 
 //-----------------------------------------------------------------------------
