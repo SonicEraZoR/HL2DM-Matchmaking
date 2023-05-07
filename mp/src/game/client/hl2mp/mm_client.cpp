@@ -9,6 +9,8 @@
 #include <steam/isteamnetworkingutils.h>
 #include <convar.h>
 #include <thread>
+#include <queue>
+#include <cctype>
 
 #define STEAMNETWORKINGSOCKETS_OPENSOURCE
 
@@ -67,6 +69,50 @@ static void InitSteamDatagramConnectionSockets()
 	g_logTimeZero = SteamNetworkingUtils()->GetLocalTimestamp();
 
 	SteamNetworkingUtils()->SetDebugOutputFunction(k_ESteamNetworkingSocketsDebugOutputType_Msg, DebugOutput);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Non-blocking console user input.  Sort of.
+// Why is this so hard?
+//
+/////////////////////////////////////////////////////////////////////////////
+
+std::queue< std::string > queueUserInput;
+
+// You really gotta wonder what kind of pedantic garbage was
+// going through the minds of people who designed std::string
+// that they decided not to include trim.
+// https://stackoverflow.com/questions/216823/whats-the-best-way-to-trim-stdstring
+
+// trim from start (in place)
+static inline void ltrim(std::string &s) {
+	s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](int ch) {
+		return !std::isspace(ch);
+	}));
+}
+
+// trim from end (in place)
+static inline void rtrim(std::string &s) {
+	s.erase(std::find_if(s.rbegin(), s.rend(), [](int ch) {
+		return !std::isspace(ch);
+	}).base(), s.end());
+}
+
+
+// Read the next line of input from stdin, if anything is available.
+bool LocalUserInput_GetNext(std::string &result)
+{
+	bool got_input = false;
+	while (!queueUserInput.empty() && !got_input)
+	{
+		result = queueUserInput.front();
+		queueUserInput.pop();
+		ltrim(result);
+		rtrim(result);
+		got_input = !result.empty(); // ignore blank lines
+	}
+	return got_input;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -132,7 +178,7 @@ public:
 		{
 			PollIncomingMessages();
 			RunCallBacks();
-			//PollLocalUserInput();
+			PollLocalUserInput();
 			std::this_thread::sleep_for(std::chrono::milliseconds(10));
 		}
 	}
@@ -165,30 +211,30 @@ private:
 		}
 	}
 
-	//void PollLocalUserInput()
-	//{
-	//	std::string cmd;
-	//	while (!g_bQuit)
-	//	{
+	void PollLocalUserInput()
+	{
+		std::string cmd;
+		while (!g_bQuit && LocalUserInput_GetNext(cmd))
+		{
 
-	//		// Check for known commands
-	//		if (strcmp(cmd.c_str(), "/quit") == 0)
-	//		{
-	//			g_bQuit = true;
-	//			Msg("Disconnecting from chat server");
+			// Check for known commands
+			if (strcmp(cmd.c_str(), "/quit") == 0)
+			{
+				g_bQuit = true;
+				Msg("Disconnecting from chat server");
 
-	//			// Close the connection gracefully.
-	//			// We use linger mode to ask for any remaining reliable data
-	//			// to be flushed out.  But remember this is an application
-	//			// protocol on UDP.  See ShutdownSteamDatagramConnectionSockets
-	//			m_pInterface->CloseConnection(m_hConnection, 0, "Goodbye", true);
-	//			break;
-	//		}
+				// Close the connection gracefully.
+				// We use linger mode to ask for any remaining reliable data
+				// to be flushed out.  But remember this is an application
+				// protocol on UDP.  See ShutdownSteamDatagramConnectionSockets
+				m_pInterface->CloseConnection(m_hConnection, 0, "Goodbye", true);
+				break;
+			}
 
-	//		// Anything else, just send it to the server and let them parse it
-	//		m_pInterface->SendMessageToConnection(m_hConnection, cmd.c_str(), (uint32)cmd.length(), k_nSteamNetworkingSend_Reliable, nullptr);
-	//	}
-	//}
+			// Anything else, just send it to the server and let them parse it
+			m_pInterface->SendMessageToConnection(m_hConnection, cmd.c_str(), (uint32)cmd.length(), k_nSteamNetworkingSend_Reliable, nullptr);
+		}
+	}
 
 	void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t *pInfo)
 	{
@@ -330,5 +376,11 @@ void MM_ThreadStop()
 		Msg("MM_ThreadStop() thread stopped successfully\n");
 }
 
+void MM_ChatSay(const CCommand &args)
+{
+	queueUserInput.push(args.ArgS());
+}
+
 ConCommand mm_connect("mm_connect", MM_Connect, "Connect to a matchmaking server");
 ConCommand mm_threadstop("mm_threadstop", MM_ThreadStop);
+ConCommand mm_chatsay("mm_chatsay", MM_ChatSay);
