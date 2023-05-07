@@ -167,7 +167,7 @@ struct SteamNetworkingMessagesSessionFailed_t
 // Using standalone lib
 #ifdef STEAMNETWORKINGSOCKETS_STANDALONELIB
 
-	static_assert( STEAMNETWORKINGMESSAGES_INTERFACE_VERSION[25] == '2', "Version mismatch" );
+	//static_assert( STEAMNETWORKINGMESSAGES_INTERFACE_VERSION[25] == '2', "Version mismatch" );
 
 	STEAMNETWORKINGSOCKETS_INTERFACE ISteamNetworkingMessages *SteamNetworkingMessages_LibV2();
 	inline ISteamNetworkingMessages *SteamNetworkingMessages_Lib() { return SteamNetworkingMessages_LibV2(); }

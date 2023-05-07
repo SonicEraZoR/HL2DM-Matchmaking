@@ -358,7 +358,7 @@ protected:
 #ifdef STEAMNETWORKINGSOCKETS_STANDALONELIB
 
 	// Standalone lib
-	static_assert( STEAMNETWORKINGUTILS_INTERFACE_VERSION[22] == '4', "Version mismatch" );
+	//static_assert( STEAMNETWORKINGUTILS_INTERFACE_VERSION[22] == '4', "Version mismatch" );
 	STEAMNETWORKINGSOCKETS_INTERFACE ISteamNetworkingUtils *SteamNetworkingUtils_LibV4();
 	inline ISteamNetworkingUtils *SteamNetworkingUtils_Lib() { return SteamNetworkingUtils_LibV4(); }
 

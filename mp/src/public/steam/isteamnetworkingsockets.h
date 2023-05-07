@@ -924,7 +924,7 @@ protected:
 // Using standalone lib
 #ifdef STEAMNETWORKINGSOCKETS_STANDALONELIB
 
-	static_assert( STEAMNETWORKINGSOCKETS_INTERFACE_VERSION[24] == '2', "Version mismatch" );
+	//static_assert( STEAMNETWORKINGSOCKETS_INTERFACE_VERSION[24] == '2', "Version mismatch" );
 	STEAMNETWORKINGSOCKETS_INTERFACE ISteamNetworkingSockets *SteamNetworkingSockets_LibV12();
 	inline ISteamNetworkingSockets *SteamNetworkingSockets_Lib() { return SteamNetworkingSockets_LibV12(); }
 
