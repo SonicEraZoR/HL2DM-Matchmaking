@@ -243,6 +243,8 @@ public:
 		serverLocalAddr.m_port = nPort;
 		SteamNetworkingConfigValue_t opt;
 		opt.SetPtr( k_ESteamNetworkingConfig_Callback_ConnectionStatusChanged, (void*)SteamNetConnectionStatusChangedCallback );
+		//opt.SetInt32(k_ESteamNetworkingConfig_IP_AllowWithoutAuth, 1);
+		//opt.SetInt32(k_ESteamNetworkingConfig_Unencrypted, 3);
 		m_hListenSock = m_pInterface->CreateListenSocketIP( serverLocalAddr, 1, &opt );
 		if ( m_hListenSock == k_HSteamListenSocket_Invalid )
 			FatalError( "Failed to listen on port %d", nPort );
@@ -254,7 +256,7 @@ public:
 		while ( !g_bQuit )
 		{
 			PollIncomingMessages();
-			PollConnectionStateChanges();
+			RunCallBacks();
 			PollLocalUserInput();
 			std::this_thread::sleep_for( std::chrono::milliseconds( 10 ) );
 		}
@@ -535,8 +537,8 @@ private:
 	{
 		s_pCallbackInstance->OnSteamNetConnectionStatusChanged( pInfo );
 	}
-
-	void PollConnectionStateChanges()
+	
+	void RunCallBacks()
 	{
 		s_pCallbackInstance = this;
 		m_pInterface->RunCallbacks();
@@ -565,6 +567,8 @@ public:
 		Printf( "Connecting to chat server at %s", szAddr );
 		SteamNetworkingConfigValue_t opt;
 		opt.SetPtr( k_ESteamNetworkingConfig_Callback_ConnectionStatusChanged, (void*)SteamNetConnectionStatusChangedCallback );
+		//opt.SetInt32(k_ESteamNetworkingConfig_IP_AllowWithoutAuth, 1);
+		//opt.SetInt32(k_ESteamNetworkingConfig_Unencrypted, 3);
 		m_hConnection = m_pInterface->ConnectByIPAddress( serverAddr, 1, &opt );
 		if ( m_hConnection == k_HSteamNetConnection_Invalid )
 			FatalError( "Failed to create connection" );
@@ -572,7 +576,7 @@ public:
 		while ( !g_bQuit )
 		{
 			PollIncomingMessages();
-			PollConnectionStateChanges();
+			RunCallBacks();
 			PollLocalUserInput();
 			std::this_thread::sleep_for( std::chrono::milliseconds( 10 ) );
 		}
@@ -692,7 +696,7 @@ private:
 		s_pCallbackInstance->OnSteamNetConnectionStatusChanged( pInfo );
 	}
 
-	void PollConnectionStateChanges()
+	void RunCallBacks()
 	{
 		s_pCallbackInstance = this;
 		m_pInterface->RunCallbacks();
@@ -701,7 +705,7 @@ private:
 
 ChatClient *ChatClient::s_pCallbackInstance = nullptr;
 
-const uint16 DEFAULT_SERVER_PORT = 27020;
+const uint16 DEFAULT_SERVER_PORT = 27055;
 
 void PrintUsageAndExit( int rc = 1 )
 {
