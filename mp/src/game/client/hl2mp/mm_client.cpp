@@ -170,12 +170,25 @@ public:
 		//opt.SetInt32(k_ESteamNetworkingConfig_IP_AllowWithoutAuth, 1);
 		//opt.SetInt32(k_ESteamNetworkingConfig_Unencrypted, 3);
 		
-		m_hConnection = m_pInterface->ConnectByIPAddress(serverAddr, 1, &opt);
+		m_hConnection = SteamNetworkingSockets()->ConnectByIPAddress(serverAddr, 1, &opt);
 		if (m_hConnection == k_HSteamNetConnection_Invalid)
+		{
 			Warning("Failed to create connection");
+			return;
+		}
 
 		while (!g_bQuit)
 		{
+			// We renew the pointer to the interface at the start of every loop to catch
+			// that the interface is not available anymore and prevent the game crash 
+			// when we exit with active connection
+			m_pInterface = SteamNetworkingSockets();
+			if (!m_pInterface)
+			{
+				Warning("No interface to GameNetworkingSockets\n");
+				g_bQuit = true;
+				break;
+			}
 			PollIncomingMessages();
 			RunCallBacks();
 			PollLocalUserInput();
@@ -199,6 +212,7 @@ private:
 			if (numMsgs < 0)
 			{
 				Warning("Error checking for messages\n");
+				g_bQuit = true;
 				break;
 			}
 
@@ -304,9 +318,17 @@ private:
 		m_pInterface->RunCallbacks();
 	}
 
-	void OnExit()
+	void OnExit() //reset all our globals and member variables
 	{
-		g_bQuit = true;
+		g_bQuit = false;
+		while (!queueUserInput.empty())
+		{
+			queueUserInput.pop();
+		}
+
+		m_hConnection = k_HSteamNetConnection_Invalid;
+		m_pInterface = nullptr;
+		m_pServerAddr.Clear();
 
 		CThread::OnExit();
 	}
@@ -323,6 +345,12 @@ void SteamNetConnectionStatusChangedCallback(SteamNetConnectionStatusChangedCall
 
 void MM_Connect(const CCommand &args)
 {
+	if (!SteamNetworkingSockets())
+	{
+		Warning("GameNetworkingSockets appears to not be initialised");
+		return;
+	}
+
 	if (args.ArgC() < 1 || !args.Arg(1))
 	{
 		Msg("Usage: mm_connect SERVER_ADDR\n");
@@ -334,7 +362,10 @@ void MM_Connect(const CCommand &args)
 	if (addrServer.IsIPv6AllZeros())
 	{
 		if (!addrServer.ParseString(args.Arg(1)))
+		{
 			Warning("Invalid server address '%s'\n", args.Arg(1));
+			return;
+		}
 		if (!V_stricmp(args.Arg(3), ""))
 			addrServer.m_port = DEFAULT_SERVER_PORT;
 		else
