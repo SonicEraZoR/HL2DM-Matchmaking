@@ -8,9 +8,9 @@
 #include <steam/steamnetworkingsockets.h>
 #include <steam/isteamnetworkingutils.h>
 #include <convar.h>
-#include <thread>
 #include <queue>
 #include <cctype>
+#include "../../mm_server/mm_shared.h"
 
 #define STEAMNETWORKINGSOCKETS_OPENSOURCE
 
@@ -26,9 +26,10 @@ const uint16 DEFAULT_SERVER_PORT = 27055;
 //
 /////////////////////////////////////////////////////////////////////////////
 
-bool g_bQuit = false;
-
 SteamNetworkingMicroseconds g_logTimeZero;
+
+/// Handle used to identify a lobby.
+typedef uint32 HLobbyID;
 
 class ChatClientThread;
 
@@ -132,16 +133,9 @@ public:
 	{
 	}
 
-	enum
-	{
-		CALL_FUNC,
-		EXIT,
-	};
-
 	bool CallThreadFunction(SteamNetworkingIPAddr serverAddr)
 	{
 		m_pServerAddr = serverAddr;
-		//CallWorker(CALL_FUNC);
 
 		return true;
 	}
@@ -177,7 +171,7 @@ public:
 			return;
 		}
 
-		while (!g_bQuit)
+		while (!m_bQuit)
 		{
 			// We renew the pointer to the interface at the start of every loop to catch
 			// that the interface is not available anymore and prevent the game crash 
@@ -186,13 +180,13 @@ public:
 			if (!m_pInterface)
 			{
 				Warning("No interface to GameNetworkingSockets\n");
-				g_bQuit = true;
+				m_bQuit = true;
 				break;
 			}
 			PollIncomingMessages();
 			RunCallBacks();
 			PollLocalUserInput();
-			std::this_thread::sleep_for(std::chrono::milliseconds(10));
+			Sleep(10);
 		}
 	}
 private:
@@ -200,10 +194,12 @@ private:
 	HSteamNetConnection m_hConnection;
 	ISteamNetworkingSockets *m_pInterface;
 	SteamNetworkingIPAddr m_pServerAddr;
+	HLobbyID m_hCurrentLobby;
+	bool m_bQuit = false;
 
 	void PollIncomingMessages()
 	{
-		while (!g_bQuit)
+		while (!m_bQuit)
 		{
 			ISteamNetworkingMessage *pIncomingMsg = nullptr;
 			int numMsgs = m_pInterface->ReceiveMessagesOnConnection(m_hConnection, &pIncomingMsg, 1);
@@ -212,13 +208,47 @@ private:
 			if (numMsgs < 0)
 			{
 				Warning("Error checking for messages\n");
-				g_bQuit = true;
+				m_bQuit = true;
 				break;
 			}
 
-			// Just echo anything we get from the server
-			Msg((char*)pIncomingMsg->m_pData);
-			Msg("\n");
+			if (DetermineMessageType(pIncomingMsg) == string)
+			{
+				void* temp_str;
+				RemoveFirstByte(&temp_str, pIncomingMsg->m_pData, pIncomingMsg->m_cbSize);
+				// Just echo anything we get from the server
+				Msg((char*)temp_str);
+				delete temp_str;
+				Msg("\n");
+			}
+			if (DetermineMessageType(pIncomingMsg) == lobby_list)
+			{
+				void* temp_lobby_list;
+				RemoveFirstByte(&temp_lobby_list, pIncomingMsg->m_pData, pIncomingMsg->m_cbSize);
+				std::map< HLobbyID, Lobby >* mapLobbies = (std::map< HLobbyID, Lobby >*)temp_lobby_list;
+				SendTypedMessage(m_hConnection, &mapLobbies->cbegin()->first, 0, k_nSteamNetworkingSend_Reliable, nullptr, request_join_lobby, m_pInterface);
+				delete temp_lobby_list;
+			}
+			if (DetermineMessageType(pIncomingMsg) == message_no_suitable_lobbies)
+			{
+				SendTypedMessage(m_hConnection, nullptr, 0, k_nSteamNetworkingSend_Reliable, nullptr, request_create_lobby, m_pInterface);
+			}
+			if (DetermineMessageType(pIncomingMsg) == message_lobby_created)
+			{
+				void* temp_lobbyid;
+				RemoveFirstByte(&temp_lobbyid, pIncomingMsg->m_pData, pIncomingMsg->m_cbSize);
+				m_hCurrentLobby = (HLobbyID)temp_lobbyid;
+				delete temp_lobbyid;
+				Msg("Joined lobby: %u", m_hCurrentLobby);
+			}
+			if (DetermineMessageType(pIncomingMsg) == message_echo)
+			{
+				void* temp_lobbyid;
+				RemoveFirstByte(&temp_lobbyid, pIncomingMsg->m_pData, pIncomingMsg->m_cbSize);
+				HLobbyID lobby_to_echo = (HLobbyID)temp_lobbyid;
+				delete temp_lobbyid;
+				Msg("Echoed: %u", lobby_to_echo);
+			}
 
 			// We don't need this anymore.
 			pIncomingMsg->Release();
@@ -228,13 +258,13 @@ private:
 	void PollLocalUserInput()
 	{
 		std::string cmd;
-		while (!g_bQuit && LocalUserInput_GetNext(cmd))
+		while (!m_bQuit && LocalUserInput_GetNext(cmd))
 		{
 
 			// Check for known commands
 			if (strcmp(cmd.c_str(), "/quit") == 0)
 			{
-				g_bQuit = true;
+				m_bQuit = true;
 				Msg("Disconnecting from chat server");
 
 				// Close the connection gracefully.
@@ -244,9 +274,19 @@ private:
 				m_pInterface->CloseConnection(m_hConnection, 0, "Goodbye", true);
 				break;
 			}
+			if (strcmp(cmd.c_str(), "/find_game") == 0)
+			{
+				SendTypedMessage(m_hConnection, nullptr, 0, k_nSteamNetworkingSend_Reliable, nullptr, request_lobby_list, m_pInterface);
+			}
+			if (strcmp(cmd.c_str(), "/echo") == 0)
+			{
+				HLobbyID test = 432000;
+				SendTypedMessage(m_hConnection, &test, sizeof(test), k_nSteamNetworkingSend_Reliable, nullptr, request_echo, m_pInterface);
+			}
+			
 
 			// Anything else, just send it to the server and let them parse it
-			m_pInterface->SendMessageToConnection(m_hConnection, cmd.c_str(), (uint32)cmd.length(), k_nSteamNetworkingSend_Reliable, nullptr);
+			SendTypedMessage(m_hConnection, cmd.c_str(), (uint32)cmd.length(), k_nSteamNetworkingSend_Reliable, nullptr, string, m_pInterface);
 		}
 	}
 
@@ -268,7 +308,7 @@ private:
 		}
 		case k_ESteamNetworkingConnectionState_ProblemDetectedLocally:
 		{
-			g_bQuit = true;
+			m_bQuit = true;
 
 			// Print an appropriate message
 			if (pInfo->m_eOldState == k_ESteamNetworkingConnectionState_Connecting)
@@ -320,7 +360,7 @@ private:
 
 	void OnExit() //reset all our globals and member variables
 	{
-		g_bQuit = false;
+		m_bQuit = false;
 		while (!queueUserInput.empty())
 		{
 			queueUserInput.pop();
@@ -412,6 +452,18 @@ void MM_ChatSay(const CCommand &args)
 	queueUserInput.push(args.ArgS());
 }
 
+void MM_FindGame()
+{
+	queueUserInput.push("/find_game");
+}
+
+void MM_Echo()
+{
+	queueUserInput.push("/echo");
+}
+
 ConCommand mm_connect("mm_connect", MM_Connect, "Connect to a matchmaking server");
 ConCommand mm_threadstop("mm_threadstop", MM_ThreadStop);
 ConCommand mm_chatsay("mm_chatsay", MM_ChatSay);
+ConCommand mm_find_game("mm_find_game", MM_FindGame);
+ConCommand mm_echo("mm_echo", MM_Echo);

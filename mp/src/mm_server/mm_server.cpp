@@ -1,6 +1,8 @@
-//====== Copyright Valve Corporation, All rights reserved. ====================
+//========= Copyright Buster Bunny, All rights reserved. ============//
 //
-// Example client/server chat application using SteamNetworkingSockets
+// Purpose:		Matchmaking Server
+//
+//=============================================================================//
 
 #include <assert.h>
 #include <stdio.h>
@@ -15,6 +17,7 @@
 #include <queue>
 #include <map>
 #include <cctype>
+#include "mm_shared.h"
 
 #include <steam/steamnetworkingsockets.h>
 #include <steam/isteamnetworkingutils.h>
@@ -289,16 +292,12 @@ private:
 	HSteamNetPollGroup m_hPollGroup;
 	ISteamNetworkingSockets *m_pInterface;
 
-	struct Client_t
-	{
-		std::string m_sNick;
-	};
-
 	std::map< HSteamNetConnection, Client_t > m_mapClients;
+	std::map< HLobbyID, Lobby > m_mapLobbies;
 
 	void SendStringToClient( HSteamNetConnection conn, const char *str )
 	{
-		m_pInterface->SendMessageToConnection( conn, str, (uint32)strlen(str), k_nSteamNetworkingSend_Reliable, nullptr );
+		SendTypedMessage(conn, str, (uint32)strlen(str), k_nSteamNetworkingSend_Reliable, nullptr, string, m_pInterface);
 	}
 
 	void SendStringToAllClients( const char *str, HSteamNetConnection except = k_HSteamNetConnection_Invalid )
@@ -326,39 +325,106 @@ private:
 			auto itClient = m_mapClients.find( pIncomingMsg->m_conn );
 			assert( itClient != m_mapClients.end() );
 
-			// '\0'-terminate it to make it easier to parse
 			std::string sCmd;
-			sCmd.assign( (const char *)pIncomingMsg->m_pData, pIncomingMsg->m_cbSize );
-			const char *cmd = sCmd.c_str();
+			const char *cmd;
+			if (DetermineMessageType(pIncomingMsg) == string)
+			{
+				// '\0'-terminate it to make it easier to parse
+				void *temp_str = nullptr;
+				RemoveFirstByte(&temp_str, pIncomingMsg->m_pData, pIncomingMsg->m_cbSize);
+				sCmd.assign((char*)temp_str, pIncomingMsg->m_cbSize - 1);
+				delete temp_str;
+				cmd = sCmd.c_str();
 
+				// Check for known commands.  None of this example code is secure or robust.
+				// Don't write a real server like this, please.
+
+				if (strncmp(cmd, "/nick", 5) == 0)
+				{
+					const char *nick = cmd + 5;
+					while (isspace(*nick))
+						++nick;
+
+					// Let everybody else know they changed their name
+					sprintf(temp, "%s shall henceforth be known as %s", itClient->second.m_sNick.c_str(), nick);
+					SendStringToAllClients(temp, itClient->first);
+
+					// Respond to client
+					sprintf(temp, "Ye shall henceforth be known as %s", nick);
+					SendStringToClient(itClient->first, temp);
+
+					// Actually change their name
+					SetClientNick(itClient->first, nick);
+					continue;
+				}
+
+				// Assume it's just a ordinary chat message, dispatch to everybody else
+				sprintf(temp, "%s: %s", itClient->second.m_sNick.c_str(), cmd);
+				SendStringToAllClients(temp, itClient->first);
+			}
+			if (DetermineMessageType(pIncomingMsg) == request_lobby_list)
+			{
+				if (m_mapLobbies.empty())
+				{
+					SendTypedMessage(pIncomingMsg->m_conn, nullptr, 0, k_nSteamNetworkingSend_Reliable, nullptr, message_no_suitable_lobbies, m_pInterface);
+				}
+				else
+				{
+					SendTypedMessage(pIncomingMsg->m_conn, &m_mapLobbies, sizeof(m_mapLobbies), k_nSteamNetworkingSend_Reliable, nullptr, lobby_list, m_pInterface);
+				}
+			}
+			if (DetermineMessageType(pIncomingMsg) == request_create_lobby)
+			{
+				Lobby temp_lobby;
+				Player temp_player;
+				temp_player.m_Client = m_mapClients.find(pIncomingMsg->m_conn)->second;
+				temp_lobby.m_mapPlayers.insert(std::pair<HSteamNetConnection, Player>(pIncomingMsg->m_conn, temp_player));
+				srand(time(0));
+				HLobbyID temp_id = rand();
+				m_mapLobbies.insert(std::pair<HLobbyID, Lobby>(temp_id, temp_lobby));
+				SendTypedMessage(pIncomingMsg->m_conn, &temp_id, 0, k_nSteamNetworkingSend_Reliable, nullptr, message_lobby_created, m_pInterface);
+				for (std::map<HLobbyID, Lobby>::iterator it = m_mapLobbies.begin(); it != m_mapLobbies.end(); ++it)
+				{
+					Printf("Current lobby list:\n");
+					Printf("LobbyID: %u\n", it->first);
+					for (std::map<HSteamNetConnection, Player>::iterator it2 = it->second.m_mapPlayers.begin(); it2 != it->second.m_mapPlayers.end(); ++it2)
+					{
+						Printf("Player: %u, %s\n", it2->first, it2->second.m_Client.m_sNick.c_str());
+					}
+				}
+			}
+			if (DetermineMessageType(pIncomingMsg) == request_join_lobby)
+			{
+				void* temp_lobbyid;
+				RemoveFirstByte(&temp_lobbyid, pIncomingMsg->m_pData, pIncomingMsg->m_cbSize);
+				HLobbyID lobby_to_join = (HLobbyID)temp_lobbyid;
+				delete temp_lobbyid;
+				Player temp_player;
+				temp_player.m_Client = m_mapClients.find(pIncomingMsg->m_conn)->second;
+				m_mapLobbies[lobby_to_join].m_mapPlayers.insert(std::pair<HSteamNetConnection, Player>(pIncomingMsg->m_conn, temp_player));
+				SendTypedMessage(pIncomingMsg->m_conn, &lobby_to_join, sizeof(lobby_to_join), k_nSteamNetworkingSend_Reliable, nullptr, message_lobby_created, m_pInterface);
+				for (std::map<HLobbyID, Lobby>::iterator it = m_mapLobbies.begin(); it != m_mapLobbies.end(); ++it)
+				{
+					Printf("Current lobby list:\n");
+					Printf("LobbyID: %u\n", it->first);
+					for (std::map<HSteamNetConnection, Player>::iterator it2 = it->second.m_mapPlayers.begin(); it2 != it->second.m_mapPlayers.end(); ++it2)
+					{
+						Printf("Player: %u, %s\n", it2->first, it2->second.m_Client.m_sNick.c_str());
+					}
+				}
+			}
+			if (DetermineMessageType(pIncomingMsg) == request_echo)
+			{
+				void* temp_lobbyid;
+				RemoveFirstByte(&temp_lobbyid, pIncomingMsg->m_pData, pIncomingMsg->m_cbSize);
+				HLobbyID lobby_to_join = (HLobbyID)temp_lobbyid;
+				delete temp_lobbyid;
+				SendTypedMessage(pIncomingMsg->m_conn, &lobby_to_join, sizeof(lobby_to_join), k_nSteamNetworkingSend_Reliable, nullptr, message_echo, m_pInterface);
+				Printf("Echoed: %u\n", lobby_to_join);
+			}
+			
 			// We don't need this anymore.
 			pIncomingMsg->Release();
-
-			// Check for known commands.  None of this example code is secure or robust.
-			// Don't write a real server like this, please.
-
-			if ( strncmp( cmd, "/nick", 5 ) == 0 )
-			{
-				const char *nick = cmd+5;
-				while ( isspace(*nick) )
-					++nick;
-
-				// Let everybody else know they changed their name
-				sprintf( temp, "%s shall henceforth be known as %s", itClient->second.m_sNick.c_str(), nick );
-				SendStringToAllClients( temp, itClient->first );
-
-				// Respond to client
-				sprintf( temp, "Ye shall henceforth be known as %s", nick );
-				SendStringToClient( itClient->first, temp );
-
-				// Actually change their name
-				SetClientNick( itClient->first, nick );
-				continue;
-			}
-
-			// Assume it's just a ordinary chat message, dispatch to everybody else
-			sprintf( temp, "%s: %s", itClient->second.m_sNick.c_str(), cmd );
-			SendStringToAllClients( temp, itClient->first );
 		}
 	}
 
@@ -597,9 +663,15 @@ private:
 			if ( numMsgs < 0 )
 				FatalError( "Error checking for messages" );
 
-			// Just echo anything we get from the server
-			fwrite( pIncomingMsg->m_pData, 1, pIncomingMsg->m_cbSize, stdout );
-			fputc( '\n', stdout );
+			if (DetermineMessageType(pIncomingMsg) == string)
+			{
+				void* temp_str;
+				RemoveFirstByte(&temp_str, pIncomingMsg->m_pData, pIncomingMsg->m_cbSize);
+				// Just echo anything we get from the server
+				fwrite(temp_str, 1, pIncomingMsg->m_cbSize - 1, stdout);
+				fputc('\n', stdout);
+				delete temp_str;
+			}
 
 			// We don't need this anymore.
 			pIncomingMsg->Release();
@@ -627,7 +699,7 @@ private:
 			}
 
 			// Anything else, just send it to the server and let them parse it
-			m_pInterface->SendMessageToConnection( m_hConnection, cmd.c_str(), (uint32)cmd.length(), k_nSteamNetworkingSend_Reliable, nullptr );
+			SendTypedMessage(m_hConnection, cmd.c_str(), (uint32)cmd.length(), k_nSteamNetworkingSend_Reliable, nullptr, string, m_pInterface);
 		}
 	}
 

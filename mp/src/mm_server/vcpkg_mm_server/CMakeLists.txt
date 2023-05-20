@@ -9,10 +9,17 @@ project( mm_server_vcpkg )
 # its dependencies and build it
 find_package(GameNetworkingSockets CONFIG REQUIRED)
 
+file(GLOB SOURCES
+    ../mm_shared.h
+    ../mm_shared.cpp
+	../mm_server.cpp
+)
+
 # Our program only has one cpp file
 add_executable(
 	mm_server
-	../mm_server.cpp)
+	${SOURCES}
+	)
 
 # This example links GameNetworkingSockets as a shared lib.
 target_link_libraries(mm_server GameNetworkingSockets::shared)
