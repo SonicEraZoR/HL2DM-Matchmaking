@@ -370,7 +370,15 @@ private:
 				}
 				else
 				{
-					SendTypedMessage(pIncomingMsg->m_conn, &m_mapLobbies, sizeof(m_mapLobbies), k_nSteamNetworkingSend_Reliable, nullptr, lobby_list, m_pInterface);
+					HLobbyID* array_LobbyIDs = new HLobbyID[m_mapLobbies.size()];
+					int i = 0;
+					for (std::map<HLobbyID, Lobby>::iterator it = m_mapLobbies.begin(); it != m_mapLobbies.end(); ++it)
+					{
+						array_LobbyIDs[i] = it->first;
+						i++;
+					}
+					SendTypedMessage(pIncomingMsg->m_conn, array_LobbyIDs, sizeof(HLobbyID)*m_mapLobbies.size(), k_nSteamNetworkingSend_Reliable, nullptr, lobby_list, m_pInterface);
+					delete[] array_LobbyIDs;
 				}
 			}
 			if (DetermineMessageType(pIncomingMsg) == request_create_lobby)
@@ -382,7 +390,7 @@ private:
 				srand(time(0));
 				HLobbyID temp_id = rand();
 				m_mapLobbies.insert(std::pair<HLobbyID, Lobby>(temp_id, temp_lobby));
-				SendTypedMessage(pIncomingMsg->m_conn, &temp_id, 0, k_nSteamNetworkingSend_Reliable, nullptr, message_lobby_created, m_pInterface);
+				SendTypedMessage(pIncomingMsg->m_conn, &temp_id, sizeof(temp_id), k_nSteamNetworkingSend_Reliable, nullptr, message_lobby_created, m_pInterface);
 				for (std::map<HLobbyID, Lobby>::iterator it = m_mapLobbies.begin(); it != m_mapLobbies.end(); ++it)
 				{
 					Printf("Current lobby list:\n");
@@ -397,7 +405,7 @@ private:
 			{
 				void* temp_lobbyid;
 				RemoveFirstByte(&temp_lobbyid, pIncomingMsg->m_pData, pIncomingMsg->m_cbSize);
-				HLobbyID lobby_to_join = (HLobbyID)temp_lobbyid;
+				HLobbyID lobby_to_join = *(HLobbyID*)temp_lobbyid;
 				delete temp_lobbyid;
 				Player temp_player;
 				temp_player.m_Client = m_mapClients.find(pIncomingMsg->m_conn)->second;
@@ -417,7 +425,7 @@ private:
 			{
 				void* temp_lobbyid;
 				RemoveFirstByte(&temp_lobbyid, pIncomingMsg->m_pData, pIncomingMsg->m_cbSize);
-				HLobbyID lobby_to_join = (HLobbyID)temp_lobbyid;
+				HLobbyID lobby_to_join = *(HLobbyID*)temp_lobbyid;
 				delete temp_lobbyid;
 				SendTypedMessage(pIncomingMsg->m_conn, &lobby_to_join, sizeof(lobby_to_join), k_nSteamNetworkingSend_Reliable, nullptr, message_echo, m_pInterface);
 				Printf("Echoed: %u\n", lobby_to_join);

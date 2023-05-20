@@ -223,11 +223,11 @@ private:
 			}
 			if (DetermineMessageType(pIncomingMsg) == lobby_list)
 			{
-				void* temp_lobby_list;
-				RemoveFirstByte(&temp_lobby_list, pIncomingMsg->m_pData, pIncomingMsg->m_cbSize);
-				std::map< HLobbyID, Lobby >* mapLobbies = (std::map< HLobbyID, Lobby >*)temp_lobby_list;
-				SendTypedMessage(m_hConnection, &mapLobbies->cbegin()->first, 0, k_nSteamNetworkingSend_Reliable, nullptr, request_join_lobby, m_pInterface);
-				delete temp_lobby_list;
+				void* temp_array_LobbyIDs;
+				RemoveFirstByte(&temp_array_LobbyIDs, pIncomingMsg->m_pData, pIncomingMsg->m_cbSize);
+				HLobbyID* array_LobbyIDs = (HLobbyID*)temp_array_LobbyIDs;
+				SendTypedMessage(m_hConnection, &array_LobbyIDs[0], sizeof(HLobbyID), k_nSteamNetworkingSend_Reliable, nullptr, request_join_lobby, m_pInterface);
+				delete temp_array_LobbyIDs;
 			}
 			if (DetermineMessageType(pIncomingMsg) == message_no_suitable_lobbies)
 			{
@@ -237,17 +237,17 @@ private:
 			{
 				void* temp_lobbyid;
 				RemoveFirstByte(&temp_lobbyid, pIncomingMsg->m_pData, pIncomingMsg->m_cbSize);
-				m_hCurrentLobby = (HLobbyID)temp_lobbyid;
+				m_hCurrentLobby = *(HLobbyID*)temp_lobbyid;
 				delete temp_lobbyid;
-				Msg("Joined lobby: %u", m_hCurrentLobby);
+				Msg("Joined lobby: %u\n", m_hCurrentLobby);
 			}
 			if (DetermineMessageType(pIncomingMsg) == message_echo)
 			{
 				void* temp_lobbyid;
 				RemoveFirstByte(&temp_lobbyid, pIncomingMsg->m_pData, pIncomingMsg->m_cbSize);
-				HLobbyID lobby_to_echo = (HLobbyID)temp_lobbyid;
+				HLobbyID lobby_to_echo = *(HLobbyID*)temp_lobbyid;
 				delete temp_lobbyid;
-				Msg("Echoed: %u", lobby_to_echo);
+				Msg("Echoed: %u\n", lobby_to_echo);
 			}
 
 			// We don't need this anymore.
