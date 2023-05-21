@@ -630,7 +630,7 @@ private:
 				// but not logged on) until them.  I'm trying to keep this example
 				// code really simple.
 				char nick[ 64 ];
-				sprintf( nick, "BraveWarrior%d", 10000 + ( rand() % 100000 ) );
+				sprintf( nick, "HL2_DM_Player%d", 10000 + ( rand() % 100000 ) );
 
 				// Send them a welcome message
 				sprintf( temp, "Welcome, stranger.  Thou art known to us for now as '%s'; upon thine command '/nick' we shall know thee otherwise.", nick ); 
