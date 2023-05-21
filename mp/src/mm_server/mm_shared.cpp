@@ -9,6 +9,8 @@
 #include "mm_shared.h"
 #include <steam/steamnetworkingsockets.h>
 
+int iNumOfPlayersToStartGame = 2;
+
 EResult SendTypedMessage(HSteamNetConnection hConn, const void *pData, uint32 cbData, int nSendFlags, int64 *pOutMessageNumber, MessageType eType, ISteamNetworkingSockets* pInterface)
 {
 	void* typed_message = (void*) ::operator new (cbData + 1);
@@ -26,6 +28,11 @@ EResult SendTypedMessage(HSteamNetConnection hConn, const void *pData, uint32 cb
 	EResult res = pInterface->SendMessageToConnection(hConn, typed_message, cbData + 1, nSendFlags, pOutMessageNumber);
 	delete typed_message;
 	return res;
+}
+
+EResult SendOnlyMessageType(HSteamNetConnection hConn, int nSendFlags, int64 *pOutMessageNumber, MessageType eType, ISteamNetworkingSockets* pInterface)
+{
+	return SendTypedMessage(hConn, nullptr, 0, nSendFlags, pOutMessageNumber, eType, pInterface);
 }
 
 MessageType DetermineMessageType(ISteamNetworkingMessage* pMessage)

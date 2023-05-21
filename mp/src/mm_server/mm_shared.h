@@ -17,6 +17,8 @@
 /// Handle used to identify a lobby.
 typedef uint32 HLobbyID;
 
+#define invalid_lobby (HLobbyID)-1
+
 enum MessageType
 {
 	string,
@@ -24,8 +26,10 @@ enum MessageType
 	lobby_list,
 	request_create_lobby,
 	request_join_lobby,
-	message_lobby_created,
+	request_leave_lobby,
+	message_save_lobby_id,
 	message_no_suitable_lobbies,
+	message_start_game,
 	request_echo,
 	message_echo
 };
@@ -61,9 +65,8 @@ struct Lobby
 };
 
 EResult SendTypedMessage(HSteamNetConnection hConn, const void *pData, uint32 cbData, int nSendFlags, int64 *pOutMessageNumber, MessageType eType, ISteamNetworkingSockets* pInterface);
-
+EResult SendOnlyMessageType(HSteamNetConnection hConn, int nSendFlags, int64 *pOutMessageNumber, MessageType eType, ISteamNetworkingSockets* pInterface);
 MessageType DetermineMessageType(ISteamNetworkingMessage* pMessage);
-
 void* RemoveFirstByte(void **Destination, const void *pData, uint32 cbData);
 
 #endif

@@ -194,8 +194,23 @@ private:
 	HSteamNetConnection m_hConnection;
 	ISteamNetworkingSockets *m_pInterface;
 	SteamNetworkingIPAddr m_pServerAddr;
-	HLobbyID m_hCurrentLobby;
+	HLobbyID m_hCurrentLobby = invalid_lobby;
+	std::string s_GameServerIP;
 	bool m_bQuit = false;
+
+	void LeaveLobby(HSteamNetConnection hConnection)
+	{
+		if (m_hCurrentLobby != invalid_lobby)
+		{
+			SendOnlyMessageType(hConnection, k_nSteamNetworkingSend_Reliable, nullptr, request_leave_lobby, m_pInterface);
+			Msg("Left lobby: %u\n", m_hCurrentLobby);
+			m_hCurrentLobby = invalid_lobby;
+		}
+		else
+		{
+			Msg("Can't leave lobby, currently not in one!\n");
+		}
+	}
 
 	void PollIncomingMessages()
 	{
@@ -231,9 +246,9 @@ private:
 			}
 			if (DetermineMessageType(pIncomingMsg) == message_no_suitable_lobbies)
 			{
-				SendTypedMessage(m_hConnection, nullptr, 0, k_nSteamNetworkingSend_Reliable, nullptr, request_create_lobby, m_pInterface);
+				SendOnlyMessageType(m_hConnection, k_nSteamNetworkingSend_Reliable, nullptr, request_create_lobby, m_pInterface);
 			}
-			if (DetermineMessageType(pIncomingMsg) == message_lobby_created)
+			if (DetermineMessageType(pIncomingMsg) == message_save_lobby_id)
 			{
 				void* temp_lobbyid;
 				RemoveFirstByte(&temp_lobbyid, pIncomingMsg->m_pData, pIncomingMsg->m_cbSize);
@@ -248,6 +263,13 @@ private:
 				HLobbyID lobby_to_echo = *(HLobbyID*)temp_lobbyid;
 				delete temp_lobbyid;
 				Msg("Echoed: %u\n", lobby_to_echo);
+			}
+			if (DetermineMessageType(pIncomingMsg) == message_start_game)
+			{
+				void* temp_game_sip;
+				RemoveFirstByte(&temp_game_sip, pIncomingMsg->m_pData, pIncomingMsg->m_cbSize);
+				s_GameServerIP = (char*)temp_game_sip;
+				Msg("Ready to start the match!\n");
 			}
 
 			// We don't need this anymore.
@@ -265,8 +287,9 @@ private:
 			if (strcmp(cmd.c_str(), "/quit") == 0)
 			{
 				m_bQuit = true;
-				Msg("Disconnecting from chat server");
+				Msg("Disconnecting from chat server\n");
 
+				LeaveLobby(m_hConnection);
 				// Close the connection gracefully.
 				// We use linger mode to ask for any remaining reliable data
 				// to be flushed out.  But remember this is an application
@@ -276,12 +299,38 @@ private:
 			}
 			if (strcmp(cmd.c_str(), "/find_game") == 0)
 			{
-				SendTypedMessage(m_hConnection, nullptr, 0, k_nSteamNetworkingSend_Reliable, nullptr, request_lobby_list, m_pInterface);
+				if (m_hCurrentLobby == invalid_lobby)
+					SendOnlyMessageType(m_hConnection, k_nSteamNetworkingSend_Reliable, nullptr, request_lobby_list, m_pInterface);
+				else
+					Warning("Already in a lobby! LobbyID: %u", m_hCurrentLobby);
+				break;
 			}
 			if (strcmp(cmd.c_str(), "/echo") == 0)
 			{
 				HLobbyID test = 432000;
 				SendTypedMessage(m_hConnection, &test, sizeof(test), k_nSteamNetworkingSend_Reliable, nullptr, request_echo, m_pInterface);
+				break;
+			}
+			if (strcmp(cmd.c_str(), "/leave_lobby") == 0)
+			{
+				LeaveLobby(m_hConnection);
+				break;
+			}
+			if (strcmp(cmd.c_str(), "/start_game") == 0)
+			{
+				if (!s_GameServerIP.empty())
+				{
+					std::string connect_commad = "connect ";
+					connect_commad.append(s_GameServerIP);
+					engine->ClientCmd(connect_commad.c_str());
+					LeaveLobby(m_hConnection);
+					s_GameServerIP.clear();
+				}
+				else
+				{
+					Warning("Can't start the game! Haven't received game server IP from mm server");
+				}
+				break;
 			}
 			
 
@@ -303,6 +352,7 @@ private:
 
 		case k_ESteamNetworkingConnectionState_ClosedByPeer:
 		{
+			LeaveLobby(pInfo->m_hConn);
 			m_pInterface->CloseConnection(pInfo->m_hConn, 0, nullptr, false);
 			break;
 		}
@@ -327,6 +377,7 @@ private:
 				Msg("The host hath bidden us farewell.  (%s)", pInfo->m_info.m_szEndDebug);
 			}
 
+			LeaveLobby(pInfo->m_hConn);
 			// Clean up the connection.  This is important!
 			// The connection is "closed" in the network sense, but
 			// it has not been destroyed.  We must close it on our end, too
@@ -462,8 +513,20 @@ void MM_Echo()
 	queueUserInput.push("/echo");
 }
 
+void MM_LeaveLobby()
+{
+	queueUserInput.push("/leave_lobby");
+}
+
+void MM_StartGame()
+{
+	queueUserInput.push("/start_game");
+}
+
 ConCommand mm_connect("mm_connect", MM_Connect, "Connect to a matchmaking server");
 ConCommand mm_threadstop("mm_threadstop", MM_ThreadStop);
 ConCommand mm_chatsay("mm_chatsay", MM_ChatSay);
 ConCommand mm_find_game("mm_find_game", MM_FindGame);
 ConCommand mm_echo("mm_echo", MM_Echo);
+ConCommand mm_leave_lobby("mm_leave_lobby", MM_LeaveLobby);
+ConCommand mm_start_game("mm_start_game", MM_StartGame);

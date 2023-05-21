@@ -38,6 +38,8 @@
 //
 /////////////////////////////////////////////////////////////////////////////
 
+extern int iNumOfPlayersToStartGame;
+
 bool g_bQuit = false;
 
 SteamNetworkingMicroseconds g_logTimeZero;
@@ -258,6 +260,7 @@ public:
 
 		while ( !g_bQuit )
 		{
+			ServerUpdate();
 			PollIncomingMessages();
 			RunCallBacks();
 			PollLocalUserInput();
@@ -278,6 +281,11 @@ public:
 			// to flush this out and close gracefully.
 			m_pInterface->CloseConnection( it.first, 0, "Server Shutdown", true );
 		}
+		for (std::map<HLobbyID, Lobby>::iterator it = m_mapLobbies.begin(); it != m_mapLobbies.end(); ++it)
+		{
+			it->second.m_mapPlayers.clear();
+		}
+		m_mapLobbies.clear();
 		m_mapClients.clear();
 
 		m_pInterface->CloseListenSocket( m_hListenSock );
@@ -291,9 +299,41 @@ private:
 	HSteamListenSocket m_hListenSock;
 	HSteamNetPollGroup m_hPollGroup;
 	ISteamNetworkingSockets *m_pInterface;
+	std::string s_GameServerIP = "192.168.0.241:27015";
 
 	std::map< HSteamNetConnection, Client_t > m_mapClients;
 	std::map< HLobbyID, Lobby > m_mapLobbies;
+
+	void PrintLobbyList()
+	{
+		for (std::map<HLobbyID, Lobby>::iterator it = m_mapLobbies.begin(); it != m_mapLobbies.end(); ++it)
+		{
+			Printf("Current lobby list:\n");
+			Printf("LobbyID: %u\n", it->first);
+			for (std::map<HSteamNetConnection, Player>::iterator it2 = it->second.m_mapPlayers.begin(); it2 != it->second.m_mapPlayers.end(); ++it2)
+			{
+				Printf("Player: %u, %s\n", it2->first, it2->second.m_Client.m_sNick.c_str());
+			}
+		}
+	}
+
+	void RemovePlayerFromLobby(HSteamNetConnection conn)
+	{
+		for (std::map<HLobbyID, Lobby>::iterator it = m_mapLobbies.begin(); it != m_mapLobbies.end(); ++it)
+		{
+			if (it->second.m_mapPlayers.erase(conn))
+			{
+				Printf("PLAYER LEFT LOBBY\n");
+				if (it->second.m_mapPlayers.empty())
+				{
+					m_mapLobbies.erase(it);
+					Printf("DESTROYED LOBBY SINCE IT WAS EMPTY\n");
+				}
+				break;
+			}
+		}
+		PrintLobbyList();
+	}
 
 	void SendStringToClient( HSteamNetConnection conn, const char *str )
 	{
@@ -306,6 +346,20 @@ private:
 		{
 			if ( c.first != except )
 				SendStringToClient( c.first, str );
+		}
+	}
+
+	void ServerUpdate()
+	{
+		for (std::map<HLobbyID, Lobby>::iterator it = m_mapLobbies.begin(); it != m_mapLobbies.end(); ++it)
+		{
+			if (it->second.m_mapPlayers.size() == iNumOfPlayersToStartGame)
+			{
+				for (std::map<HSteamNetConnection, Player>::iterator it2 = it->second.m_mapPlayers.begin(); it2 != it->second.m_mapPlayers.end(); ++it2)
+				{
+					SendTypedMessage(it2->first, s_GameServerIP.c_str(), (uint32)strlen(s_GameServerIP.c_str()), k_nSteamNetworkingSend_Reliable, nullptr, message_start_game, m_pInterface);
+				}
+			}
 		}
 	}
 
@@ -366,7 +420,7 @@ private:
 			{
 				if (m_mapLobbies.empty())
 				{
-					SendTypedMessage(pIncomingMsg->m_conn, nullptr, 0, k_nSteamNetworkingSend_Reliable, nullptr, message_no_suitable_lobbies, m_pInterface);
+					SendOnlyMessageType(pIncomingMsg->m_conn, k_nSteamNetworkingSend_Reliable, nullptr, message_no_suitable_lobbies, m_pInterface);
 				}
 				else
 				{
@@ -377,7 +431,7 @@ private:
 						array_LobbyIDs[i] = it->first;
 						i++;
 					}
-					SendTypedMessage(pIncomingMsg->m_conn, array_LobbyIDs, sizeof(HLobbyID)*m_mapLobbies.size(), k_nSteamNetworkingSend_Reliable, nullptr, lobby_list, m_pInterface);
+					SendTypedMessage(pIncomingMsg->m_conn, array_LobbyIDs, (uint32)(sizeof(HLobbyID)*m_mapLobbies.size()), k_nSteamNetworkingSend_Reliable, nullptr, lobby_list, m_pInterface);
 					delete[] array_LobbyIDs;
 				}
 			}
@@ -387,19 +441,12 @@ private:
 				Player temp_player;
 				temp_player.m_Client = m_mapClients.find(pIncomingMsg->m_conn)->second;
 				temp_lobby.m_mapPlayers.insert(std::pair<HSteamNetConnection, Player>(pIncomingMsg->m_conn, temp_player));
-				srand(time(0));
+				srand((unsigned int)time(0));
 				HLobbyID temp_id = rand();
 				m_mapLobbies.insert(std::pair<HLobbyID, Lobby>(temp_id, temp_lobby));
-				SendTypedMessage(pIncomingMsg->m_conn, &temp_id, sizeof(temp_id), k_nSteamNetworkingSend_Reliable, nullptr, message_lobby_created, m_pInterface);
-				for (std::map<HLobbyID, Lobby>::iterator it = m_mapLobbies.begin(); it != m_mapLobbies.end(); ++it)
-				{
-					Printf("Current lobby list:\n");
-					Printf("LobbyID: %u\n", it->first);
-					for (std::map<HSteamNetConnection, Player>::iterator it2 = it->second.m_mapPlayers.begin(); it2 != it->second.m_mapPlayers.end(); ++it2)
-					{
-						Printf("Player: %u, %s\n", it2->first, it2->second.m_Client.m_sNick.c_str());
-					}
-				}
+				SendTypedMessage(pIncomingMsg->m_conn, &temp_id, sizeof(temp_id), k_nSteamNetworkingSend_Reliable, nullptr, message_save_lobby_id, m_pInterface);
+				Printf("PLAYER JOINED LOBBY\n");
+				PrintLobbyList();
 			}
 			if (DetermineMessageType(pIncomingMsg) == request_join_lobby)
 			{
@@ -410,16 +457,9 @@ private:
 				Player temp_player;
 				temp_player.m_Client = m_mapClients.find(pIncomingMsg->m_conn)->second;
 				m_mapLobbies[lobby_to_join].m_mapPlayers.insert(std::pair<HSteamNetConnection, Player>(pIncomingMsg->m_conn, temp_player));
-				SendTypedMessage(pIncomingMsg->m_conn, &lobby_to_join, sizeof(lobby_to_join), k_nSteamNetworkingSend_Reliable, nullptr, message_lobby_created, m_pInterface);
-				for (std::map<HLobbyID, Lobby>::iterator it = m_mapLobbies.begin(); it != m_mapLobbies.end(); ++it)
-				{
-					Printf("Current lobby list:\n");
-					Printf("LobbyID: %u\n", it->first);
-					for (std::map<HSteamNetConnection, Player>::iterator it2 = it->second.m_mapPlayers.begin(); it2 != it->second.m_mapPlayers.end(); ++it2)
-					{
-						Printf("Player: %u, %s\n", it2->first, it2->second.m_Client.m_sNick.c_str());
-					}
-				}
+				SendTypedMessage(pIncomingMsg->m_conn, &lobby_to_join, sizeof(lobby_to_join), k_nSteamNetworkingSend_Reliable, nullptr, message_save_lobby_id, m_pInterface);
+				Printf("PLAYER JOINED LOBBY\n");
+				PrintLobbyList();
 			}
 			if (DetermineMessageType(pIncomingMsg) == request_echo)
 			{
@@ -430,6 +470,11 @@ private:
 				SendTypedMessage(pIncomingMsg->m_conn, &lobby_to_join, sizeof(lobby_to_join), k_nSteamNetworkingSend_Reliable, nullptr, message_echo, m_pInterface);
 				Printf("Echoed: %u\n", lobby_to_join);
 			}
+			if (DetermineMessageType(pIncomingMsg) == request_leave_lobby)
+			{
+				RemovePlayerFromLobby(pIncomingMsg->m_conn);
+			}
+			
 			
 			// We don't need this anymore.
 			pIncomingMsg->Release();
@@ -445,6 +490,23 @@ private:
 			{
 				g_bQuit = true;
 				Printf( "Shutting down server" );
+				break;
+			}
+			if (strncmp(cmd.c_str(), "/num_s", 6) == 0)
+			{
+				const char *temp_num_s = cmd.c_str() + 6;
+				iNumOfPlayersToStartGame = (int)strtol(temp_num_s, nullptr, 10);
+				Printf("Number of players in a lobby requered for the game to start: %i\n", iNumOfPlayersToStartGame);
+				break;
+			}
+			if (strncmp(cmd.c_str(), "/game_sip", 9) == 0)
+			{
+				const char *temp_game_sip = cmd.c_str() + 9;
+				while (isspace(*temp_game_sip))
+					++temp_game_sip;
+				
+				s_GameServerIP = temp_game_sip;
+				Printf("Game Server IP: %s\n", s_GameServerIP.c_str());
 				break;
 			}
 
@@ -513,6 +575,7 @@ private:
 						pInfo->m_info.m_szEndDebug
 					);
 
+					RemovePlayerFromLobby(pInfo->m_hConn);
 					m_mapClients.erase( itClient );
 
 					// Send a message so everybody else knows what happened
