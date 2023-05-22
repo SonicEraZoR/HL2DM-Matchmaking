@@ -299,7 +299,7 @@ private:
 	HSteamListenSocket m_hListenSock;
 	HSteamNetPollGroup m_hPollGroup;
 	ISteamNetworkingSockets *m_pInterface;
-	std::string s_GameServerIP = "192.168.0.241:27015";
+	std::string s_GameServerIP = "127.0.0.1:27015";
 
 	std::map< HSteamNetConnection, Client_t > m_mapClients;
 	std::map< HLobbyID, Lobby > m_mapLobbies;
@@ -511,7 +511,7 @@ private:
 			}
 
 			// That's the only command we support
-			Printf( "The server only knows one command: '/quit'" );
+			Printf( "Possible commands:\n'/quit' (shutdown the server)\n'/num_s' (number of players in a lobby required to start the game)\n'/game_sip' (IP of the game server)" );
 		}
 	}
 
