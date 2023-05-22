@@ -18,7 +18,8 @@ $Project
 {
 	$Folder "Link Libraries"
 	{
-		$Libexternal GameNetworkingSockets [$VS2013 || !$WINDOWS]
-		$Libexternal libcrypto [$VS2013 || !$WINDOWS]
+		$Libexternal GameNetworkingSockets [$VS2013]
+		$Libexternal libGameNetworkingSockets_s [!$WINDOWS]
+		$Libexternal libcrypto [$VS2013]
 	}
 }
