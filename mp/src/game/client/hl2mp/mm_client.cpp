@@ -8,8 +8,11 @@
 #include <steam/steamnetworkingsockets.h>
 #include <steam/isteamnetworkingutils.h>
 #include <convar.h>
+#include "tier0/valve_minmax_off.h"
 #include <queue>
+#include "tier0/valve_minmax_on.h"
 #include <cctype>
+#include <algorithm>
 #include "../../mm_server/mm_shared.h"
 
 #define STEAMNETWORKINGSOCKETS_OPENSOURCE
@@ -121,12 +124,16 @@ bool LocalUserInput_GetNext(std::string &result)
 // ChatClient
 //
 /////////////////////////////////////////////////////////////////////////////
+void SteamNetConnectionStatusChangedCallback(SteamNetConnectionStatusChangedCallback_t *pInfo);
+
 class ChatClientThread : public CThread
 {
 public:
 	ChatClientThread()
 	{
 		SetName("ChatClientThread");
+        m_hCurrentLobby = invalid_lobby;
+        m_bQuit = false;
 	}
 
 	~ChatClientThread()
@@ -194,9 +201,9 @@ private:
 	HSteamNetConnection m_hConnection;
 	ISteamNetworkingSockets *m_pInterface;
 	SteamNetworkingIPAddr m_pServerAddr;
-	HLobbyID m_hCurrentLobby = invalid_lobby;
+	HLobbyID m_hCurrentLobby;
 	std::string s_GameServerIP;
-	bool m_bQuit = false;
+	bool m_bQuit;
 
 	void LeaveLobby(HSteamNetConnection hConnection)
 	{
@@ -232,7 +239,7 @@ private:
 				void* temp_str;
 				RemoveFirstByte(&temp_str, pIncomingMsg->m_pData, pIncomingMsg->m_cbSize);
 				// Just echo anything we get from the server
-				Msg((char*)temp_str);
+				Msg("%s", (char*)temp_str);
 				delete temp_str;
 				Msg("\n");
 			}
