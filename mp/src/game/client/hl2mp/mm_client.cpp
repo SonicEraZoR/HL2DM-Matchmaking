@@ -165,7 +165,7 @@ public:
 		// Start connecting
 		char szAddr[SteamNetworkingIPAddr::k_cchMaxString];
 		serverAddr.ToString(szAddr, sizeof(szAddr), true);
-		Msg("Connecting to matchmaking server at %s", szAddr);
+		Msg("Connecting to matchmaking server at %s\n", szAddr);
 		SteamNetworkingConfigValue_t opt;
 		opt.SetPtr(k_ESteamNetworkingConfig_Callback_ConnectionStatusChanged, (FnSteamNetConnectionStatusChanged)SteamNetConnectionStatusChangedCallback);
 		//opt.SetInt32(k_ESteamNetworkingConfig_IP_AllowWithoutAuth, 1);
@@ -174,7 +174,7 @@ public:
 		m_hConnection = SteamNetworkingSockets()->ConnectByIPAddress(serverAddr, 1, &opt);
 		if (m_hConnection == k_HSteamNetConnection_Invalid)
 		{
-			Warning("Failed to create connection");
+			Warning("Failed to create connection\n");
 			return;
 		}
 
@@ -301,7 +301,7 @@ private:
 				// We use linger mode to ask for any remaining reliable data
 				// to be flushed out.  But remember this is an application
 				// protocol on UDP.  See ShutdownSteamDatagramConnectionSockets
-				m_pInterface->CloseConnection(m_hConnection, 0, "Goodbye", true);
+				m_pInterface->CloseConnection(m_hConnection, 0, "Goodbye\n", true);
 				break;
 			}
 			if (strcmp(cmd.c_str(), "/find_game") == 0)
@@ -309,7 +309,7 @@ private:
 				if (m_hCurrentLobby == invalid_lobby)
 					SendOnlyMessageType(m_hConnection, k_nSteamNetworkingSend_Reliable, nullptr, request_lobby_list, m_pInterface);
 				else
-					Warning("Already in a lobby! LobbyID: %u", m_hCurrentLobby);
+					Warning("Already in a lobby! LobbyID: %u\n", m_hCurrentLobby);
 				break;
 			}
 			if (strcmp(cmd.c_str(), "/echo") == 0)
@@ -335,7 +335,7 @@ private:
 				}
 				else
 				{
-					Warning("Can't start the game! Haven't received game server IP from mm server");
+					Warning("Can't start the game! Haven't received game server IP from mm server\n");
 				}
 				break;
 			}
@@ -372,16 +372,16 @@ private:
 			{
 				// Note: we could distinguish between a timeout, a rejected connection,
 				// or some other transport problem.
-				Msg("We sought the remote host, yet our efforts were met with defeat.  (%s)", pInfo->m_info.m_szEndDebug);
+				Msg("We sought the remote host, yet our efforts were met with defeat.  (%s)\n", pInfo->m_info.m_szEndDebug);
 			}
 			else if (pInfo->m_info.m_eState == k_ESteamNetworkingConnectionState_ProblemDetectedLocally)
 			{
-				Msg("Alas, troubles beset us; we have lost contact with the host.  (%s)", pInfo->m_info.m_szEndDebug);
+				Msg("Alas, troubles beset us; we have lost contact with the host.  (%s)\n", pInfo->m_info.m_szEndDebug);
 			}
 			else
 			{
 				// NOTE: We could check the reason code for a normal disconnection
-				Msg("The host hath bidden us farewell.  (%s)", pInfo->m_info.m_szEndDebug);
+				Msg("The host hath bidden us farewell.  (%s)\n", pInfo->m_info.m_szEndDebug);
 			}
 
 			LeaveLobby(pInfo->m_hConn);
@@ -402,7 +402,7 @@ private:
 			break;
 
 		case k_ESteamNetworkingConnectionState_Connected:
-			Msg("Connected to server OK");
+			Msg("Connected to server OK\n");
 			break;
 
 		default:
@@ -445,7 +445,7 @@ void MM_Connect(const CCommand &args)
 {
 	if (!SteamNetworkingSockets())
 	{
-		Warning("GameNetworkingSockets appears to not be initialised");
+		Warning("GameNetworkingSockets appears to not be initialised\n");
 		return;
 	}
 
