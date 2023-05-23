@@ -165,7 +165,7 @@ public:
 		// Start connecting
 		char szAddr[SteamNetworkingIPAddr::k_cchMaxString];
 		serverAddr.ToString(szAddr, sizeof(szAddr), true);
-		Msg("Connecting to chat server at %s", szAddr);
+		Msg("Connecting to matchmaking server at %s", szAddr);
 		SteamNetworkingConfigValue_t opt;
 		opt.SetPtr(k_ESteamNetworkingConfig_Callback_ConnectionStatusChanged, (FnSteamNetConnectionStatusChanged)SteamNetConnectionStatusChangedCallback);
 		//opt.SetInt32(k_ESteamNetworkingConfig_IP_AllowWithoutAuth, 1);
@@ -294,7 +294,7 @@ private:
 			if (strcmp(cmd.c_str(), "/quit") == 0)
 			{
 				m_bQuit = true;
-				Msg("Disconnecting from chat server\n");
+				Msg("Disconnecting from matchmaking server\n");
 
 				LeaveLobby(m_hConnection);
 				// Close the connection gracefully.
@@ -530,10 +530,16 @@ void MM_StartGame()
 	queueUserInput.push("/start_game");
 }
 
+void MM_Disconnect()
+{
+	queueUserInput.push("/quit");
+}
+
 ConCommand mm_connect("mm_connect", MM_Connect, "Connect to a matchmaking server");
 ConCommand mm_threadstop("mm_threadstop", MM_ThreadStop);
-ConCommand mm_chatsay("mm_chatsay", MM_ChatSay);
-ConCommand mm_find_game("mm_find_game", MM_FindGame);
-ConCommand mm_echo("mm_echo", MM_Echo);
-ConCommand mm_leave_lobby("mm_leave_lobby", MM_LeaveLobby);
-ConCommand mm_start_game("mm_start_game", MM_StartGame);
+ConCommand mm_chatsay("mm_chatsay", MM_ChatSay, "Say something to a matchmaking chat");
+ConCommand mm_find_game("mm_find_game", MM_FindGame, "Start searching for a match");
+ConCommand mm_echo("mm_echo", MM_Echo, "For testing, echoes message back from matchmaking server");
+ConCommand mm_leave_lobby("mm_leave_lobby", MM_LeaveLobby, "Leave matchmaking lobby");
+ConCommand mm_start_game("mm_start_game", MM_StartGame, "Begin the match if it was found");
+ConCommand mm_disconnect("mm_disconnect", MM_Disconnect, "Disconnect from a matchmaking server");
