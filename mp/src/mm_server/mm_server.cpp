@@ -855,8 +855,8 @@ void PrintUsageAndExit( int rc = 1 )
 	fflush(stderr);
 	printf(
 R"usage(Usage:
-    example_chat client SERVER_ADDR
-    example_chat server [--port PORT]
+    mm_server client SERVER_ADDR
+    mm_server server [--port PORT]
 )usage"
 	);
 	fflush(stdout);
