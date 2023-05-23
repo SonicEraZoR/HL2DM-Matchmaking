@@ -23,6 +23,8 @@
 
 const uint16 DEFAULT_SERVER_PORT = 27055;
 
+ConVar mm_auto_start_game("mm_auto_start_game", "1", FCVAR_CLIENTDLL | FCVAR_ARCHIVE);
+
 /////////////////////////////////////////////////////////////////////////////
 //
 // Common stuff
@@ -190,6 +192,7 @@ public:
 				m_bQuit = true;
 				break;
 			}
+			ClientUpdate();
 			PollIncomingMessages();
 			RunCallBacks();
 			PollLocalUserInput();
@@ -216,6 +219,25 @@ private:
 		else
 		{
 			Msg("Can't leave lobby, currently not in one!\n");
+		}
+	}
+
+	void ClientUpdate()
+	{
+		while (!m_bQuit)
+		{
+			if (mm_auto_start_game.GetBool() && !s_GameServerIP.empty())
+			{
+				std::string connect_commad = "connect ";
+				connect_commad.append(s_GameServerIP);
+				engine->ClientCmd(connect_commad.c_str());
+				LeaveLobby(m_hConnection);
+				s_GameServerIP.clear();
+			}
+			else
+			{
+				break;
+			}
 		}
 	}
 
