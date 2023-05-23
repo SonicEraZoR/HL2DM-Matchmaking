@@ -196,6 +196,9 @@ inline bool CSteamAPIContext::Init()
 	m_pSteamClient = ::SteamClient();
 	if ( !m_pSteamClient )
 		return false;
+    
+    HSteamUser hSteamUser = SteamAPI_GetHSteamUser();
+	HSteamPipe hSteamPipe = SteamAPI_GetHSteamPipe();
 
 	m_pSteamUser = ::SteamUser();
 	if ( !m_pSteamUser )
@@ -223,7 +226,7 @@ inline bool CSteamAPIContext::Init()
 		return false;
 #endif
 
-	m_pSteamUserStats = ::SteamUserStats();
+	m_pSteamUserStats = SteamClient()->GetISteamUserStats( hSteamUser, hSteamPipe, STEAMUSERSTATS_INTERFACE_VERSION );
 	if ( !m_pSteamUserStats )
 		return false;
 

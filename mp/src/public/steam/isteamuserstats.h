@@ -305,9 +305,11 @@ public:
 
 #define STEAMUSERSTATS_INTERFACE_VERSION "STEAMUSERSTATS_INTERFACE_VERSION012"
 
+#ifndef SWDS
 // Global interface accessor
 inline ISteamUserStats *SteamUserStats();
 STEAM_DEFINE_USER_INTERFACE_ACCESSOR( ISteamUserStats *, SteamUserStats, STEAMUSERSTATS_INTERFACE_VERSION );
+#endif
 
 // callbacks
 #if defined( VALVE_CALLBACK_PACK_SMALL )
