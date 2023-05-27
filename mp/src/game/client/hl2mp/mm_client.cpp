@@ -299,6 +299,7 @@ private:
 				RemoveFirstByte(&temp_game_sip, pIncomingMsg->m_pData, pIncomingMsg->m_cbSize);
 				s_GameServerIP = (char*)temp_game_sip;
 				Msg("Ready to start the match!\n");
+                delete temp_game_sip;
 			}
 
 			// We don't need this anymore.
