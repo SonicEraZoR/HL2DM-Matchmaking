@@ -44,32 +44,6 @@ static void DebugOutput(ESteamNetworkingSocketsDebugOutputType eType, const char
 	Msg("%10.6f %s\n", time*1e-6, pszMsg);
 }
 
-//static void FatalError(const char *fmt, ...)
-//{
-//	char text[2048];
-//	va_list ap;
-//	va_start(ap, fmt);
-//	vsprintf(text, fmt, ap);
-//	va_end(ap);
-//	char *nl = strchr(text, '\0') - 1;
-//	if (nl >= text && *nl == '\n')
-//		*nl = '\0';
-//	DebugOutput(k_ESteamNetworkingSocketsDebugOutputType_Bug, text);
-//}
-//
-//static void Printf(const char *fmt, ...)
-//{
-//	char text[2048];
-//	va_list ap;
-//	va_start(ap, fmt);
-//	vsprintf(text, fmt, ap);
-//	va_end(ap);
-//	char *nl = strchr(text, '\0') - 1;
-//	if (nl >= text && *nl == '\n')
-//		*nl = '\0';
-//	DebugOutput(k_ESteamNetworkingSocketsDebugOutputType_Msg, text);
-//}
-
 static void InitSteamDatagramConnectionSockets()
 {
 	g_logTimeZero = SteamNetworkingUtils()->GetLocalTimestamp();

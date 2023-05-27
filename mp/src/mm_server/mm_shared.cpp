@@ -4,7 +4,6 @@
 //
 //=============================================================================
 
-//#include "../game/client/cbase.h"
 #include "cbase.h"
 #include "mm_shared.h"
 #include <steam/steamnetworkingsockets.h>
