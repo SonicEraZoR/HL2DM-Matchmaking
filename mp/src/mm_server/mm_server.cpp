@@ -17,6 +17,7 @@
 #include <queue>
 #include <map>
 #include <cctype>
+#include <sqlite3.h>
 #include "mm_shared.h"
 
 #include <steam/steamnetworkingsockets.h>
@@ -229,10 +230,26 @@ bool LocalUserInput_GetNext( std::string &result )
 
 /////////////////////////////////////////////////////////////////////////////
 //
-// ChatServer
+// Database stuff
 //
 /////////////////////////////////////////////////////////////////////////////
 
+static int callback(void *NotUsed, int argc, char **argv, char **azColName)
+{
+	int i;
+	for(i=0; i<argc; i++)
+	{
+		printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
+	}
+	printf("\n");
+	return 0;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// ChatServer
+//
+/////////////////////////////////////////////////////////////////////////////
 class ChatServer
 {
 public:
@@ -869,6 +886,9 @@ int main( int argc, const char *argv[] )
 	bool bClient = false;
 	int nPort = DEFAULT_SERVER_PORT;
 	SteamNetworkingIPAddr addrServer; addrServer.Clear();
+	sqlite3 *db;
+	char *zErrMsg = 0;
+	int rc;
 
 	for ( int i = 1 ; i < argc ; ++i )
 	{
@@ -906,11 +926,26 @@ int main( int argc, const char *argv[] )
 			continue;
 		}
 
-		PrintUsageAndExit();
+		//PrintUsageAndExit();
 	}
 
 	if ( bClient == bServer || ( bClient && addrServer.IsIPv6AllZeros() ) )
 		PrintUsageAndExit();
+
+	rc = sqlite3_open(argv[2], &db);
+	if( rc )
+	{
+		fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
+		sqlite3_close(db);
+		return(1);
+	}
+	rc = sqlite3_exec(db, argv[3], callback, 0, &zErrMsg);
+	if( rc!=SQLITE_OK )
+	{
+		fprintf(stderr, "SQL error: %s\n", zErrMsg);
+		sqlite3_free(zErrMsg);
+	}
+	sqlite3_close(db);
 
 	// Create client and server sockets
 	InitSteamDatagramConnectionSockets();
