@@ -39,3 +39,13 @@ void* RemoveFirstByte(void **Destination, const void *pData, uint32 cbData)
 	memcpy(*Destination, (uint8*)pData + 1, cbData - 1);
 	return *Destination;
 }
+
+std::string ReceiveString(const void *pData, uint32 cbData)
+{
+	std::string res;
+	void *temp_str = nullptr;
+	RemoveFirstByte(&temp_str, pData, cbData);
+	res.assign((char*)temp_str, cbData - 1);
+	delete temp_str;
+	return res;
+}

@@ -68,5 +68,6 @@ EResult SendTypedMessage(HSteamNetConnection hConn, const void *pData, uint32 cb
 EResult SendOnlyMessageType(HSteamNetConnection hConn, int nSendFlags, int64 *pOutMessageNumber, MessageType eType, ISteamNetworkingSockets* pInterface);
 MessageType DetermineMessageType(ISteamNetworkingMessage* pMessage);
 void* RemoveFirstByte(void **Destination, const void *pData, uint32 cbData);
+std::string ReceiveString(const void *pData, uint32 cbData);
 
 #endif

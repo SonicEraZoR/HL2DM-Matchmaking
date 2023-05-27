@@ -232,11 +232,7 @@ private:
 
 			if (DetermineMessageType(pIncomingMsg) == chat_message)
 			{
-				void* temp_str;
-				RemoveFirstByte(&temp_str, pIncomingMsg->m_pData, pIncomingMsg->m_cbSize);
-				// Just echo anything we get from the server
-				Msg("%s", (char*)temp_str);
-				delete temp_str;
+				Msg("%s", ReceiveString(pIncomingMsg->m_pData, pIncomingMsg->m_cbSize).c_str());
 				Msg("\n");
 			}
 			if (DetermineMessageType(pIncomingMsg) == lobby_list)
@@ -269,11 +265,8 @@ private:
 			}
 			if (DetermineMessageType(pIncomingMsg) == message_start_game)
 			{
-				void* temp_game_sip;
-				RemoveFirstByte(&temp_game_sip, pIncomingMsg->m_pData, pIncomingMsg->m_cbSize);
-				s_GameServerIP = (char*)temp_game_sip;
+				s_GameServerIP = ReceiveString(pIncomingMsg->m_pData, pIncomingMsg->m_cbSize).c_str();
 				Msg("Ready to start the match!\n");
-                delete temp_game_sip;
 			}
 
 			// We don't need this anymore.
