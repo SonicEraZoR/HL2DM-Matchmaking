@@ -8,6 +8,7 @@ project( mm_server_vcpkg )
 # Ask vcpkg to fetch gamenetworkingsockets and all
 # its dependencies and build it
 find_package(GameNetworkingSockets CONFIG REQUIRED)
+find_package(SQLite3 REQUIRED)
 
 file(GLOB SOURCES
     ../mm_shared.h
@@ -22,5 +23,5 @@ add_executable(
 	)
 
 # This example links GameNetworkingSockets as a shared lib.
-target_link_libraries(mm_server GameNetworkingSockets::shared)
+target_link_libraries(mm_server PRIVATE GameNetworkingSockets::shared SQLite::SQLite3)
 add_compile_definitions(_CRT_SECURE_NO_WARNINGS)

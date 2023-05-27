@@ -3,5 +3,5 @@
 	"name": "mm-server",
 	"version-string": "0.1",
 	"description": "Match making server",
-	"dependencies": [ "gamenetworkingsockets" ]
+	"dependencies": [ "gamenetworkingsockets", "sqlite3" ]
 }
