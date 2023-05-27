@@ -337,7 +337,7 @@ private:
 
 	void SendStringToClient( HSteamNetConnection conn, const char *str )
 	{
-		SendTypedMessage(conn, str, (uint32)strlen(str), k_nSteamNetworkingSend_Reliable, nullptr, string, m_pInterface);
+		SendTypedMessage(conn, str, (uint32)strlen(str), k_nSteamNetworkingSend_Reliable, nullptr, chat_message, m_pInterface);
 	}
 
 	void SendStringToAllClients( const char *str, HSteamNetConnection except = k_HSteamNetConnection_Invalid )
@@ -381,7 +381,7 @@ private:
 
 			std::string sCmd;
 			const char *cmd;
-			if (DetermineMessageType(pIncomingMsg) == string)
+			if (DetermineMessageType(pIncomingMsg) == chat_message)
 			{
 				// '\0'-terminate it to make it easier to parse
 				void *temp_str = nullptr;
@@ -734,7 +734,7 @@ private:
 			if ( numMsgs < 0 )
 				FatalError( "Error checking for messages" );
 
-			if (DetermineMessageType(pIncomingMsg) == string)
+			if (DetermineMessageType(pIncomingMsg) == chat_message)
 			{
 				void* temp_str;
 				RemoveFirstByte(&temp_str, pIncomingMsg->m_pData, pIncomingMsg->m_cbSize);
@@ -770,7 +770,7 @@ private:
 			}
 
 			// Anything else, just send it to the server and let them parse it
-			SendTypedMessage(m_hConnection, cmd.c_str(), (uint32)cmd.length(), k_nSteamNetworkingSend_Reliable, nullptr, string, m_pInterface);
+			SendTypedMessage(m_hConnection, cmd.c_str(), (uint32)cmd.length(), k_nSteamNetworkingSend_Reliable, nullptr, chat_message, m_pInterface);
 		}
 	}
 

@@ -21,7 +21,7 @@ typedef uint32 HLobbyID;
 
 enum MessageType
 {
-	string,
+	chat_message,
 	request_lobby_list,
 	lobby_list,
 	request_create_lobby,

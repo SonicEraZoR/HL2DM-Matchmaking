@@ -256,7 +256,7 @@ private:
 				break;
 			}
 
-			if (DetermineMessageType(pIncomingMsg) == string)
+			if (DetermineMessageType(pIncomingMsg) == chat_message)
 			{
 				void* temp_str;
 				RemoveFirstByte(&temp_str, pIncomingMsg->m_pData, pIncomingMsg->m_cbSize);
@@ -365,7 +365,7 @@ private:
 			
 
 			// Anything else, just send it to the server and let them parse it
-			SendTypedMessage(m_hConnection, cmd.c_str(), (uint32)cmd.length(), k_nSteamNetworkingSend_Reliable, nullptr, string, m_pInterface);
+			SendTypedMessage(m_hConnection, cmd.c_str(), (uint32)cmd.length(), k_nSteamNetworkingSend_Reliable, nullptr, chat_message, m_pInterface);
 		}
 	}
 
