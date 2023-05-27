@@ -17,14 +17,6 @@ EResult SendTypedMessage(HSteamNetConnection hConn, const void *pData, uint32 cb
 	memcpy(typed_message, &eType, 1);
 	if (cbData != 0)
 		memcpy((uint8*)typed_message + 1, pData, cbData);
-	//if (eType == request_echo)
-	//{
-	//	void* v_test;
-	//	RemoveFirstByte(&v_test, typed_message, cbData + 1);
-	//	HLobbyID h_test = *(HLobbyID*)v_test;
-	//	delete v_test;
-	//	printf("Test: %u\n", h_test);
-	//}
 	EResult res = pInterface->SendMessageToConnection(hConn, typed_message, cbData + 1, nSendFlags, pOutMessageNumber);
 	delete typed_message;
 	return res;
