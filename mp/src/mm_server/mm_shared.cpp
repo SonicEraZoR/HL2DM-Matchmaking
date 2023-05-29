@@ -49,3 +49,30 @@ std::string ReceiveString(const void *pData, uint32 cbData)
 	delete temp_str;
 	return res;
 }
+
+std::string ConvertMapToString(HL2DM_Map map)
+{
+	switch (map)
+	{
+	case dm_lockdown:
+		return "dm_lockdown";
+	case dm_overwatch:
+		return "dm_overwatch";
+	case dm_powerhouse:
+		return "dm_powerhouse";
+	case dm_resistance:
+		return "dm_resistance";
+	case dm_runoff:
+		return "dm_runoff";
+	case dm_steamlab:
+		return "dm_steamlab";
+	case dm_underpass:
+		return "dm_underpass";
+	case halls3:
+		return "halls3";
+	case invalid_map:
+		return "<no map set>";
+	default:
+		return "";
+	}
+}

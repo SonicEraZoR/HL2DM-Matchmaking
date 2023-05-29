@@ -306,15 +306,28 @@ private:
 
 	void PrintLobbyList()
 	{
+		Printf("Current lobby list:\n");
 		for (std::map<HLobbyID, Lobby>::iterator it = m_mapLobbies.begin(); it != m_mapLobbies.end(); ++it)
 		{
-			Printf("Current lobby list:\n");
 			Printf("LobbyID: %u\n", it->first);
 			for (std::map<HSteamNetConnection, Player>::iterator it2 = it->second.m_mapPlayers.begin(); it2 != it->second.m_mapPlayers.end(); ++it2)
 			{
 				Printf("Player: %u, %s\n", it2->first, it2->second.m_Client.m_sNick.c_str());
 			}
+			Printf("Current map: %s\n", ConvertMapToString(it->second.m_map).c_str());
+			Printf("Team deathmatch: %i\n", (int)it->second.m_bTeamDM);
 		}
+	}
+
+	void PrintLobby(HLobbyID lobbyID)
+	{
+		Printf("LobbyID: %u\n", lobbyID);
+		for (std::map<HSteamNetConnection, Player>::iterator it2 = m_mapLobbies[lobbyID].m_mapPlayers.begin(); it2 != m_mapLobbies[lobbyID].m_mapPlayers.end(); ++it2)
+		{
+			Printf("Player: %u, %s\n", it2->first, it2->second.m_Client.m_sNick.c_str());
+		}
+		Printf("Current map: %s\n", ConvertMapToString(m_mapLobbies[lobbyID].m_map).c_str());
+		Printf("Team deathmatch: %i\n", (int)m_mapLobbies[lobbyID].m_bTeamDM);
 	}
 
 	void RemovePlayerFromLobby(HSteamNetConnection conn)
@@ -444,9 +457,10 @@ private:
 				srand((unsigned int)time(0));
 				HLobbyID temp_id = rand();
 				m_mapLobbies.insert(std::pair<HLobbyID, Lobby>(temp_id, temp_lobby));
-				SendTypedMessage(pIncomingMsg->m_conn, &temp_id, sizeof(temp_id), k_nSteamNetworkingSend_Reliable, nullptr, message_save_lobby_id, m_pInterface);
-				Printf("PLAYER JOINED LOBBY\n");
-				PrintLobbyList();
+				SendTypedMessage(pIncomingMsg->m_conn, &temp_id, sizeof(temp_id), k_nSteamNetworkingSend_Reliable, nullptr, message_save_lobby_id_on_create, m_pInterface);
+				Printf("LOBBY CREATED\n");
+				Printf("HOST JOINED LOBBY\n");
+				PrintLobby(temp_id);
 			}
 			if (DetermineMessageType(pIncomingMsg) == request_join_lobby)
 			{
@@ -459,7 +473,7 @@ private:
 				m_mapLobbies[lobby_to_join].m_mapPlayers.insert(std::pair<HSteamNetConnection, Player>(pIncomingMsg->m_conn, temp_player));
 				SendTypedMessage(pIncomingMsg->m_conn, &lobby_to_join, sizeof(lobby_to_join), k_nSteamNetworkingSend_Reliable, nullptr, message_save_lobby_id, m_pInterface);
 				Printf("PLAYER JOINED LOBBY\n");
-				PrintLobbyList();
+				PrintLobby(lobby_to_join);
 			}
 			if (DetermineMessageType(pIncomingMsg) == request_echo)
 			{
@@ -474,7 +488,30 @@ private:
 			{
 				RemovePlayerFromLobby(pIncomingMsg->m_conn);
 			}
-			
+			if (DetermineMessageType(pIncomingMsg) == request_lobby_data)
+			{
+				void* temp_lobbyid;
+				RemoveFirstByte(&temp_lobbyid, pIncomingMsg->m_pData, pIncomingMsg->m_cbSize);
+				HLobbyID lobby_id = *(HLobbyID*)temp_lobbyid;
+				delete temp_lobbyid;
+				LobbyData l_lobby_data;
+				l_lobby_data.m_hLobbyID = lobby_id;
+				l_lobby_data.m_bTeamDM = m_mapLobbies[lobby_id].m_bTeamDM;
+				l_lobby_data.m_map = m_mapLobbies[lobby_id].m_map;
+				SendTypedMessage(pIncomingMsg->m_conn, &l_lobby_data, sizeof(l_lobby_data), k_nSteamNetworkingSend_Reliable, nullptr, lobby_data, m_pInterface);
+				Printf("LOBBY: %u METADATA WAS SENT\n", lobby_id);
+			}
+			if (DetermineMessageType(pIncomingMsg) == lobby_data)
+			{
+				void* temp_lobby_data;
+				RemoveFirstByte(&temp_lobby_data, pIncomingMsg->m_pData, pIncomingMsg->m_cbSize);
+				LobbyData l_lobby_data = *(LobbyData*)temp_lobby_data;
+				delete temp_lobby_data;
+				m_mapLobbies[l_lobby_data.m_hLobbyID].m_bTeamDM = l_lobby_data.m_bTeamDM;
+				m_mapLobbies[l_lobby_data.m_hLobbyID].m_map = l_lobby_data.m_map;
+				Printf("SET LOBBY: %u METADATA\n", l_lobby_data.m_hLobbyID);
+				PrintLobby(l_lobby_data.m_hLobbyID);
+			}
 			
 			// We don't need this anymore.
 			pIncomingMsg->Release();
@@ -509,9 +546,14 @@ private:
 				Printf("Game Server IP: %s\n", s_GameServerIP.c_str());
 				break;
 			}
+			if (strncmp(cmd.c_str(), "/print_lobbies", 14) == 0)
+			{
+				PrintLobbyList();
+				break;
+			}
 
 			// That's the only command we support
-			Printf( "Possible commands:\n'/quit' (shutdown the server)\n'/num_s' (number of players in a lobby required to start the game)\n'/game_sip' (IP of the game server)" );
+			Printf( "Possible commands:\n'/quit' (shutdown the server)\n'/num_s' (number of players in a lobby required to start the game)\n'/game_sip' (IP of the game server)\n'/print_lobbies' (print all of the lobbies)" );
 		}
 	}
 

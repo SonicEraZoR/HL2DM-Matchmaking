@@ -110,6 +110,8 @@ public:
 		SetName("ChatClientThread");
         m_hCurrentLobby = invalid_lobby;
         m_bQuit = false;
+		m_mapToSearch = dm_lockdown;
+		m_bTeamDMSearch = 0;
 	}
 
 	~ChatClientThread()
@@ -175,12 +177,16 @@ public:
 	}
 private:
 
+	std::queue<HLobbyID> m_LobbyIDs;
 	HSteamNetConnection m_hConnection;
 	ISteamNetworkingSockets *m_pInterface;
 	SteamNetworkingIPAddr m_pServerAddr;
 	HLobbyID m_hCurrentLobby;
 	std::string s_GameServerIP;
 	bool m_bQuit;
+
+	HL2DM_Map m_mapToSearch;
+	char m_bTeamDMSearch;
 
 	void LeaveLobby(HSteamNetConnection hConnection)
 	{
@@ -240,7 +246,12 @@ private:
 				void* temp_array_LobbyIDs;
 				RemoveFirstByte(&temp_array_LobbyIDs, pIncomingMsg->m_pData, pIncomingMsg->m_cbSize);
 				HLobbyID* array_LobbyIDs = (HLobbyID*)temp_array_LobbyIDs;
-				SendTypedMessage(m_hConnection, &array_LobbyIDs[0], sizeof(HLobbyID), k_nSteamNetworkingSend_Reliable, nullptr, request_join_lobby, m_pInterface);
+				int array_LobbyIDs_size = (pIncomingMsg->m_cbSize - 1) / sizeof(HLobbyID);
+				for (int i = 1; i < array_LobbyIDs_size; i++)
+				{
+					m_LobbyIDs.push(array_LobbyIDs[i]);
+				}
+				SendTypedMessage(m_hConnection, &array_LobbyIDs[0], sizeof(HLobbyID), k_nSteamNetworkingSend_Reliable, nullptr, request_lobby_data, m_pInterface);
 				delete temp_array_LobbyIDs;
 			}
 			if (DetermineMessageType(pIncomingMsg) == message_no_suitable_lobbies)
@@ -255,6 +266,19 @@ private:
 				delete temp_lobbyid;
 				Msg("Joined lobby: %u\n", m_hCurrentLobby);
 			}
+			if (DetermineMessageType(pIncomingMsg) == message_save_lobby_id_on_create)
+			{
+				void* temp_lobbyid;
+				RemoveFirstByte(&temp_lobbyid, pIncomingMsg->m_pData, pIncomingMsg->m_cbSize);
+				m_hCurrentLobby = *(HLobbyID*)temp_lobbyid;
+				delete temp_lobbyid;
+				Msg("Joined lobby: %u\n", m_hCurrentLobby);
+				LobbyData l_lobby_data;
+				l_lobby_data.m_bTeamDM = m_bTeamDMSearch;
+				l_lobby_data.m_hLobbyID = m_hCurrentLobby;
+				l_lobby_data.m_map = m_mapToSearch;
+				SendTypedMessage(pIncomingMsg->m_conn, &l_lobby_data, sizeof(l_lobby_data), k_nSteamNetworkingSend_Reliable, nullptr, lobby_data, m_pInterface);
+			}
 			if (DetermineMessageType(pIncomingMsg) == message_echo)
 			{
 				void* temp_lobbyid;
@@ -267,6 +291,30 @@ private:
 			{
 				s_GameServerIP = ReceiveString(pIncomingMsg->m_pData, pIncomingMsg->m_cbSize).c_str();
 				Msg("Ready to start the match!\n");
+			}
+			if (DetermineMessageType(pIncomingMsg) == lobby_data)
+			{
+				void* temp_lobby_data;
+				RemoveFirstByte(&temp_lobby_data, pIncomingMsg->m_pData, pIncomingMsg->m_cbSize);
+				LobbyData l_lobby_data = *(LobbyData*)temp_lobby_data;
+				delete temp_lobby_data;
+				if ((l_lobby_data.m_bTeamDM	== m_bTeamDMSearch) && 
+					(l_lobby_data.m_map		== m_mapToSearch))
+				{
+					SendTypedMessage(pIncomingMsg->m_conn, &l_lobby_data.m_hLobbyID, sizeof(l_lobby_data.m_hLobbyID), k_nSteamNetworkingSend_Reliable, nullptr, request_join_lobby, m_pInterface);
+				}
+				else
+				{
+					if (!m_LobbyIDs.empty())
+					{
+						SendTypedMessage(m_hConnection, &m_LobbyIDs.front(), sizeof(HLobbyID), k_nSteamNetworkingSend_Reliable, nullptr, request_lobby_data, m_pInterface);
+						m_LobbyIDs.pop();
+					}
+					else
+					{
+						SendOnlyMessageType(pIncomingMsg->m_conn, k_nSteamNetworkingSend_Reliable, nullptr, request_create_lobby, m_pInterface);
+					}
+				}
 			}
 
 			// We don't need this anymore.
@@ -329,7 +377,37 @@ private:
 				}
 				break;
 			}
-			
+			if (strncmp(cmd.c_str(), "/set_map", 8) == 0)
+			{
+				const char *temp_map = cmd.c_str() + 8;
+				long int i_map = strtol(temp_map, nullptr, 10);
+				if (!i_map)
+				{
+					Warning("Enter a number corresponding to the map name\n");
+					Msg("Map list:\n");
+					Msg("dm_lockdown = 1\n");
+					Msg("dm_overwatch = 2\n");
+					Msg("dm_powerhouse = 3\n");
+					Msg("dm_resistance = 4\n");
+					Msg("dm_runoff = 5\n");
+					Msg("dm_steamlab = 6\n");
+					Msg("dm_underpass = 7\n");
+					Msg("halls3 = 8\n");
+				}
+				else
+				{
+					m_mapToSearch = (HL2DM_Map)(i_map - 1);
+					Msg("Searching for this map: %s\n", ConvertMapToString(m_mapToSearch).c_str());
+				}
+				break;
+			}
+			if (strncmp(cmd.c_str(), "/set_gamemode", 13) == 0)
+			{
+				const char *temp_gmode = cmd.c_str() + 13;
+				m_bTeamDMSearch = (char)strtol(temp_gmode, nullptr, 10);
+				Msg("Searching for team dm: %i\n", (int)m_bTeamDMSearch);
+				break;
+			}
 
 			// Anything else, just send it to the server and let them parse it
 			SendTypedMessage(m_hConnection, cmd.c_str(), (uint32)cmd.length(), k_nSteamNetworkingSend_Reliable, nullptr, chat_message, m_pInterface);
@@ -525,11 +603,35 @@ void MM_Disconnect()
 	queueUserInput.push("/quit");
 }
 
-ConCommand mm_connect("mm_connect", MM_Connect, "Connect to a matchmaking server");
+void MM_SetMap(const CCommand &args)
+{
+	std::string res = "/set_map ";
+	res.append(args.ArgS());
+	queueUserInput.push(res);
+}
+
+void MM_SetGameMode(const CCommand &args)
+{
+	if (args.ArgC() < 1 || !args.Arg(1))
+	{
+		Msg("Possible values: 0, 1\n");
+	}
+	else
+	{
+		std::string res = "/set_gamemode ";
+		res.append(args.ArgS());
+		queueUserInput.push(res);
+	}
+}
+
+ConCommand mm_echo("mm_echo", MM_Echo, "For testing, echoes message back from matchmaking server");
 ConCommand mm_threadstop("mm_threadstop", MM_ThreadStop);
+ConCommand mm_disconnect("mm_disconnect", MM_Disconnect, "Disconnect from a matchmaking server");
+ConCommand mm_connect("mm_connect", MM_Connect, "Connect to a matchmaking server");
 ConCommand mm_chatsay("mm_chatsay", MM_ChatSay, "Say something to a matchmaking chat");
 ConCommand mm_find_game("mm_find_game", MM_FindGame, "Start searching for a match");
-ConCommand mm_echo("mm_echo", MM_Echo, "For testing, echoes message back from matchmaking server");
-ConCommand mm_leave_lobby("mm_leave_lobby", MM_LeaveLobby, "Leave matchmaking lobby");
+ConCommand mm_cancel_search("mm_cancel_search", MM_LeaveLobby, "Leave matchmaking lobby");
 ConCommand mm_start_game("mm_start_game", MM_StartGame, "Begin the match if it was found");
-ConCommand mm_disconnect("mm_disconnect", MM_Disconnect, "Disconnect from a matchmaking server");
+ConCommand mm_set_map("mm_set_map", MM_SetMap, "Set the map to search for");
+ConCommand mm_set_tdm("mm_set_tdm", MM_SetGameMode, "Set if you want to search for team deathmatch or not");
+
