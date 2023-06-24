@@ -63,9 +63,14 @@ struct Player
 
 struct Lobby
 {
+	Lobby()
+	{
+		m_map = invalid_map;
+		m_bTeamDM = -1;
+	}
 	std::map< HSteamNetConnection, Player > m_mapPlayers;
-	HL2DM_Map m_map = invalid_map;
-	char m_bTeamDM = -1;
+	HL2DM_Map m_map;
+	char m_bTeamDM;
 };
 
 struct LobbyData
