@@ -1,0 +1,3 @@
+[submodule "mp/src/mm_server/SourceRCON"]
+	path = mp/src/mm_server/SourceRCON
+	url = https://github.com/Phil25/SourceRCON.git
