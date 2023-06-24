@@ -17,6 +17,8 @@
 #include <queue>
 #include <map>
 #include <cctype>
+#include <sqlite3.h>
+#include <srcon.h>
 #include "mm_shared.h"
 
 #include <steam/steamnetworkingsockets.h>
@@ -232,7 +234,6 @@ bool LocalUserInput_GetNext( std::string &result )
 // ChatServer
 //
 /////////////////////////////////////////////////////////////////////////////
-
 class ChatServer
 {
 public:
@@ -299,10 +300,10 @@ private:
 	HSteamListenSocket m_hListenSock;
 	HSteamNetPollGroup m_hPollGroup;
 	ISteamNetworkingSockets *m_pInterface;
-	std::string s_GameServerIP = "127.0.0.1:27015";
 
 	std::map< HSteamNetConnection, Client_t > m_mapClients;
 	std::map< HLobbyID, Lobby > m_mapLobbies;
+	std::vector< srcon_addr > m_vGameServers;
 
 	void PrintLobbyList()
 	{
@@ -368,9 +369,30 @@ private:
 		{
 			if (it->second.m_mapPlayers.size() == iNumOfPlayersToStartGame)
 			{
+				srcon_addr addr_struct;
+				addr_struct.addr = "127.0.1.1";
+				addr_struct.pass = "123";
+				addr_struct.port = 27015;
+				//srcon rcon_game_s = srcon(m_vGameServers.front());
+				srcon rcon_game_s = srcon(addr_struct);
+				
+				std::string set_tdm = "mp_teamplay ";
+				set_tdm.append(std::to_string(it->second.m_bTeamDM));
+				std::string tdm_re = rcon_game_s.send(set_tdm);
+				Printf("SET TDM RESPONSE: %s\n", tdm_re.c_str());
+				
+				std::string change_level = "changelevel ";
+				change_level.append(ConvertMapToString(it->second.m_map));
+				std::string change_level_re = rcon_game_s.send(change_level);
+				Printf("CHANGE LEVEL RESPONSE: %s\n", change_level_re.c_str());
+				
+				std::string game_sip = m_vGameServers.front().addr;
+				game_sip.append(":");
+				game_sip.append(std::to_string(m_vGameServers.front().port));
+				
 				for (std::map<HSteamNetConnection, Player>::iterator it2 = it->second.m_mapPlayers.begin(); it2 != it->second.m_mapPlayers.end(); ++it2)
 				{
-					SendTypedMessage(it2->first, s_GameServerIP.c_str(), (uint32)strlen(s_GameServerIP.c_str()), k_nSteamNetworkingSend_Reliable, nullptr, message_start_game, m_pInterface);
+					SendTypedMessage(it2->first, game_sip.c_str(), (uint32)strlen(game_sip.c_str()), k_nSteamNetworkingSend_Reliable, nullptr, message_start_game, m_pInterface);
 				}
 			}
 		}
@@ -542,8 +564,25 @@ private:
 				while (isspace(*temp_game_sip))
 					++temp_game_sip;
 				
-				s_GameServerIP = temp_game_sip;
-				Printf("Game Server IP: %s\n", s_GameServerIP.c_str());
+				SteamNetworkingIPAddr addrServer; addrServer.Clear();
+				
+				if ( addrServer.IsIPv6AllZeros() )
+				{
+					if ( !addrServer.ParseString( temp_game_sip ) )
+						FatalError( "Invalid GAME server address '%s'", temp_game_sip );
+					if ( addrServer.m_port == 0 )
+						addrServer.m_port = 27015;
+				}
+				
+				char szAddr[ SteamNetworkingIPAddr::k_cchMaxString ];
+				addrServer.ToString( szAddr, sizeof(szAddr), false );
+				srcon_addr addr_struct;
+				addr_struct.addr = szAddr;
+				addr_struct.pass = "123";
+				addr_struct.port = addrServer.m_port;
+				
+				m_vGameServers.push_back(addr_struct);
+				Printf("Game Server IP: %s:%i\n", m_vGameServers.front().addr.c_str(), m_vGameServers.front().port);
 				break;
 			}
 			if (strncmp(cmd.c_str(), "/print_lobbies", 14) == 0)
@@ -907,6 +946,14 @@ R"usage(Usage:
 
 int main( int argc, const char *argv[] )
 {
+// 	srcon_addr addr_struct;
+// 	addr_struct.addr = "127.0.1.1";
+// 	addr_struct.pass = "123";
+// 	addr_struct.port = 27015;
+// 	srcon client = srcon(addr_struct);
+// 	std::string response = client.send("echo test");
+// 	printf("RCON: %s\n", response.c_str());
+	
 	bool bServer = false;
 	bool bClient = false;
 	int nPort = DEFAULT_SERVER_PORT;
