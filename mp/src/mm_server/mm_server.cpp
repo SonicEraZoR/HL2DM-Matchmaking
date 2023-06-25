@@ -370,11 +370,12 @@ private:
 		{
 			if (it->second.m_mapPlayers.size() == iNumOfPlayersToStartGame)
 			{
+				Printf("ENOUTH PLAYERS TO START THE GAME IN A LOBBY: %u\n", it->first);
+				
 				srcon_addr addr_struct;
 				addr_struct.addr = "127.0.1.1";
 				addr_struct.pass = "123";
 				addr_struct.port = 27015;
-				//srcon rcon_game_s = srcon(m_vGameServers.front());
 				srcon rcon_game_s = srcon(addr_struct);
 				
 				std::string set_tdm = "mp_teamplay ";
@@ -391,11 +392,19 @@ private:
 				game_sip.append(":");
 				game_sip.append(std::to_string(m_vGameServers.front().port));
 				
-				for (std::map<HSteamNetConnection, Player>::iterator it2 = it->second.m_mapPlayers.begin(); it2 != it->second.m_mapPlayers.end(); ++it2)
+				for (std::map<HSteamNetConnection, Player>::iterator it2 = it->second.m_mapPlayers.begin(); !it->second.m_mapPlayers.empty(); ++it2)
 				{
 					SendTypedMessage(it2->first, game_sip.c_str(), (uint32)strlen(game_sip.c_str()), k_nSteamNetworkingSend_Reliable, nullptr, message_start_game, m_pInterface);
+					
+					Printf("PLAYER %s LEFT LOBBY: %u\n", it2->second.m_Client.m_sNick.c_str(), it->first);
+					it->second.m_mapPlayers.erase(it2->first);
 				}
+				Printf("DESTROYED LOBBY %u SINCE IT WAS EMPTY\n", it->first);
+				m_mapLobbies.erase(it->first);
+				PrintLobbyList();
 			}
+			if (m_mapLobbies.empty())
+				break;
 		}
 	}
 
