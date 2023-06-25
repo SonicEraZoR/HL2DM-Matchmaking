@@ -335,13 +335,14 @@ private:
 	{
 		for (std::map<HLobbyID, Lobby>::iterator it = m_mapLobbies.begin(); it != m_mapLobbies.end(); ++it)
 		{
+			std::string temp_nick = it->second.m_mapPlayers[conn].m_Client.m_sNick;
 			if (it->second.m_mapPlayers.erase(conn))
 			{
-				Printf("PLAYER LEFT LOBBY\n");
+				Printf("PLAYER %s LEFT LOBBY: %u\n", temp_nick.c_str(), it->first);
 				if (it->second.m_mapPlayers.empty())
 				{
+					Printf("DESTROYED LOBBY %u SINCE IT WAS EMPTY\n", it->first);
 					m_mapLobbies.erase(it);
-					Printf("DESTROYED LOBBY SINCE IT WAS EMPTY\n");
 				}
 				break;
 			}
@@ -480,8 +481,8 @@ private:
 				HLobbyID temp_id = rand();
 				m_mapLobbies.insert(std::pair<HLobbyID, Lobby>(temp_id, temp_lobby));
 				SendTypedMessage(pIncomingMsg->m_conn, &temp_id, sizeof(temp_id), k_nSteamNetworkingSend_Reliable, nullptr, message_save_lobby_id_on_create, m_pInterface);
-				Printf("LOBBY CREATED\n");
-				Printf("HOST JOINED LOBBY\n");
+				Printf("LOBBY %u CREATED\n", temp_id);
+				Printf("HOST %s JOINED LOBBY\n", m_mapClients[pIncomingMsg->m_conn].m_sNick.c_str());
 				PrintLobby(temp_id);
 			}
 			if (DetermineMessageType(pIncomingMsg) == request_join_lobby)
@@ -494,7 +495,7 @@ private:
 				temp_player.m_Client = m_mapClients.find(pIncomingMsg->m_conn)->second;
 				m_mapLobbies[lobby_to_join].m_mapPlayers.insert(std::pair<HSteamNetConnection, Player>(pIncomingMsg->m_conn, temp_player));
 				SendTypedMessage(pIncomingMsg->m_conn, &lobby_to_join, sizeof(lobby_to_join), k_nSteamNetworkingSend_Reliable, nullptr, message_save_lobby_id, m_pInterface);
-				Printf("PLAYER JOINED LOBBY\n");
+				Printf("PLAYER %s JOINED LOBBY\n", m_mapClients[pIncomingMsg->m_conn].m_sNick.c_str());
 				PrintLobby(lobby_to_join);
 			}
 			if (DetermineMessageType(pIncomingMsg) == request_echo)
