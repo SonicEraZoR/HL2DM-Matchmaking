@@ -376,7 +376,15 @@ private:
 					std::string connect_commad = "connect ";
 					connect_commad.append(s_GameServerIP);
 					engine->ClientCmd(connect_commad.c_str());
-					LeaveLobby(m_hConnection);
+					if (m_hCurrentLobby != invalid_lobby)
+					{
+						Msg("Left lobby: %u\n", m_hCurrentLobby);
+						m_hCurrentLobby = invalid_lobby;
+					}
+					else
+					{
+						Msg("Can't leave lobby, currently not in one!\n");
+					}
 					s_GameServerIP.clear();
 				}
 				else
