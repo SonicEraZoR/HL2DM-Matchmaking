@@ -579,7 +579,10 @@ private:
 				if ( addrServer.IsIPv6AllZeros() )
 				{
 					if ( !addrServer.ParseString( temp_game_sip ) )
-						FatalError( "Invalid GAME server address '%s'", temp_game_sip );
+					{
+						Printf( "Invalid GAME server address '%s'", temp_game_sip );
+						break;
+					}
 					if ( addrServer.m_port == 0 )
 						addrServer.m_port = 27015;
 				}
