@@ -297,7 +297,7 @@ private:
 			}
 			if (DetermineMessageType(pIncomingMsg) == message_start_game)
 			{
-				s_GameServerIP = ReceiveString(pIncomingMsg->m_pData, pIncomingMsg->m_cbSize).c_str();
+				s_GameServerIP = ReceiveString(pIncomingMsg->m_pData, pIncomingMsg->m_cbSize);
 				Msg("Ready to start the match!\n");
 			}
 			if (DetermineMessageType(pIncomingMsg) == lobby_data)
