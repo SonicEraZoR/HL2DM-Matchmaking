@@ -237,6 +237,11 @@ bool LocalUserInput_GetNext( std::string &result )
 class ChatServer
 {
 public:
+	ChatServer()
+	{
+		m_hFullLobby = invalid_lobby;
+	}
+	
 	void Run( uint16 nPort )
 	{
 		// Select instance to use.  For now we'll always use the default.
@@ -304,6 +309,8 @@ private:
 	std::map< HSteamNetConnection, Client_t > m_mapClients;
 	std::map< HLobbyID, Lobby > m_mapLobbies;
 	std::vector< srcon_addr > m_vGameServers;
+	
+	HLobbyID m_hFullLobby;
 
 	void PrintLobbyList()
 	{
@@ -366,46 +373,42 @@ private:
 
 	void ServerUpdate()
 	{
-		for (std::map<HLobbyID, Lobby>::iterator it = m_mapLobbies.begin(); it != m_mapLobbies.end(); ++it)
+		if (m_hFullLobby != invalid_lobby)
 		{
-			if (it->second.m_mapPlayers.size() == iNumOfPlayersToStartGame)
+			Printf("ENOUTH PLAYERS TO START THE GAME IN A LOBBY: %u\n", m_hFullLobby);
+			
+			srcon_addr addr_struct;
+			addr_struct.addr = "127.0.1.1";
+			addr_struct.pass = "123";
+			addr_struct.port = 27015;
+			srcon rcon_game_s = srcon(addr_struct);
+			
+			std::string set_tdm = "mp_teamplay ";
+			set_tdm.append(std::to_string(m_mapLobbies[m_hFullLobby].m_bTeamDM));
+			std::string tdm_re = rcon_game_s.send(set_tdm);
+			Printf("SET TDM RESPONSE: %s\n", tdm_re.c_str());
+			
+			std::string change_level = "changelevel ";
+			change_level.append(ConvertMapToString(m_mapLobbies[m_hFullLobby].m_map));
+			std::string change_level_re = rcon_game_s.send(change_level);
+			Printf("CHANGE LEVEL RESPONSE: %s\n", change_level_re.c_str());
+			
+			std::string game_sip = m_vGameServers.front().addr;
+			game_sip.append(":");
+			game_sip.append(std::to_string(m_vGameServers.front().port));
+			
+			HSteamNetConnection temp_id = m_mapLobbies[m_hFullLobby].m_mapPlayers.begin()->first;
+			while (!m_mapLobbies[m_hFullLobby].m_mapPlayers.empty())
 			{
-				Printf("ENOUTH PLAYERS TO START THE GAME IN A LOBBY: %u\n", it->first);
-				
-				srcon_addr addr_struct;
-				addr_struct.addr = "127.0.1.1";
-				addr_struct.pass = "123";
-				addr_struct.port = 27015;
-				srcon rcon_game_s = srcon(addr_struct);
-				
-				std::string set_tdm = "mp_teamplay ";
-				set_tdm.append(std::to_string(it->second.m_bTeamDM));
-				std::string tdm_re = rcon_game_s.send(set_tdm);
-				Printf("SET TDM RESPONSE: %s\n", tdm_re.c_str());
-				
-				std::string change_level = "changelevel ";
-				change_level.append(ConvertMapToString(it->second.m_map));
-				std::string change_level_re = rcon_game_s.send(change_level);
-				Printf("CHANGE LEVEL RESPONSE: %s\n", change_level_re.c_str());
-				
-				std::string game_sip = m_vGameServers.front().addr;
-				game_sip.append(":");
-				game_sip.append(std::to_string(m_vGameServers.front().port));
-				
-				HSteamNetConnection temp_id = it->second.m_mapPlayers.begin()->first;
-				while (!it->second.m_mapPlayers.empty())
-				{
-					SendTypedMessage(temp_id, game_sip.c_str(), (uint32)strlen(game_sip.c_str()), k_nSteamNetworkingSend_Reliable, nullptr, message_start_game, m_pInterface);
-					Printf("PLAYER %s LEFT LOBBY: %u\n", it->second.m_mapPlayers[temp_id].m_Client.m_sNick.c_str(), it->first);
-					it->second.m_mapPlayers.erase(temp_id);
-					temp_id = it->second.m_mapPlayers.begin()->first;
-				}
-				Printf("DESTROYED LOBBY %u SINCE IT WAS EMPTY\n", it->first);
-				m_mapLobbies.erase(it->first);
-				PrintLobbyList();
+				SendTypedMessage(temp_id, game_sip.c_str(), (uint32)strlen(game_sip.c_str()), k_nSteamNetworkingSend_Reliable, nullptr, message_start_game, m_pInterface);
+				Printf("PLAYER %s LEFT LOBBY: %u\n", m_mapLobbies[m_hFullLobby].m_mapPlayers[temp_id].m_Client.m_sNick.c_str(), m_hFullLobby);
+				m_mapLobbies[m_hFullLobby].m_mapPlayers.erase(temp_id);
+				temp_id = m_mapLobbies[m_hFullLobby].m_mapPlayers.begin()->first;
 			}
-			if (m_mapLobbies.empty())
-				break;
+			Printf("DESTROYED LOBBY %u SINCE IT WAS EMPTY\n", m_hFullLobby);
+			m_mapLobbies.erase(m_hFullLobby);
+			m_hFullLobby = invalid_lobby;
+			PrintLobbyList();
 		}
 	}
 
@@ -507,6 +510,8 @@ private:
 				SendTypedMessage(pIncomingMsg->m_conn, &lobby_to_join, sizeof(lobby_to_join), k_nSteamNetworkingSend_Reliable, nullptr, message_save_lobby_id, m_pInterface);
 				Printf("PLAYER %s JOINED LOBBY\n", m_mapClients[pIncomingMsg->m_conn].m_sNick.c_str());
 				PrintLobby(lobby_to_join);
+				if(m_mapLobbies[lobby_to_join].m_mapPlayers.size() == iNumOfPlayersToStartGame)
+					m_hFullLobby = lobby_to_join;
 			}
 			if (DetermineMessageType(pIncomingMsg) == request_echo)
 			{
