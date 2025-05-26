@@ -83,3 +83,7 @@ config.cfg
 /mp/src/mm_server/vcpkg_mm_server/vcpkg/*
 /mp/src/mm_server/vcpkg_mm_server/vcpkg_installed/*
 /mp/src/mm_server/vcpkg_mm_server/build/*
+/mp/game/hl2mp_mm/stats.txt
+/mp/game/hl2mp_mm/voice_ban.dt
+/mp/game/hl2mp_mm/cfg/server_blacklist.txt
+/mp/game/hl2mp_mm/user_custom/*
