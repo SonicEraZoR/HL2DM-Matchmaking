@@ -377,11 +377,7 @@ private:
 		{
 			Printf("ENOUTH PLAYERS TO START THE GAME IN A LOBBY: %u\n", m_hFullLobby);
 			
-			srcon_addr addr_struct;
-			addr_struct.addr = "127.0.1.1";
-			addr_struct.pass = "123";
-			addr_struct.port = 27015;
-			srcon rcon_game_s = srcon(addr_struct);
+			srcon rcon_game_s = srcon(m_vGameServers.front());
 			
 			std::string set_tdm = "mp_teamplay ";
 			set_tdm.append(std::to_string(m_mapLobbies[m_hFullLobby].m_bTeamDM));
