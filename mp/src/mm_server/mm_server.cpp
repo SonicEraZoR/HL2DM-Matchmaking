@@ -610,7 +610,6 @@ private:
 				break;
 			}
 
-			// That's the only command we support
 			Printf( "Possible commands:\n'/quit' (shutdown the server)\n'/num_s' (number of players in a lobby required to start the game)\n'/game_sip' (IP of the game server)\n'/print_lobbies' (print all of the lobbies)" );
 		}
 	}
@@ -965,14 +964,6 @@ R"usage(Usage:
 
 int main( int argc, const char *argv[] )
 {
-// 	srcon_addr addr_struct;
-// 	addr_struct.addr = "127.0.1.1";
-// 	addr_struct.pass = "123";
-// 	addr_struct.port = 27015;
-// 	srcon client = srcon(addr_struct);
-// 	std::string response = client.send("echo test");
-// 	printf("RCON: %s\n", response.c_str());
-	
 	bool bServer = false;
 	bool bClient = false;
 	int nPort = DEFAULT_SERVER_PORT;
